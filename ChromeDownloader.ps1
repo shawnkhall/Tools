@@ -185,7 +185,6 @@ Switch ($platform) {
 
 # generate the initial request
 $header = @{ "Accept"="text/xml"; "Content-Type"="text/xml" }
-#$body = "<?xml version='1.0' encoding='UTF-8'?><request protocol='3.0' version='1.3.23.9' shell_version='1.3.21.103' ismachine='0' sessionid='{3597644B-2952-4F92-AE55-D315F45F80A5}' installsource='ondemandcheckforupdate' requestid='{CD7523AD-A40D-49F4-AEEF-8C114B804658}' dedup='cr'><hw sse='1' sse2='1' sse3='1' ssse3='1' sse41='1' sse42='1' avx='1' physmemory='12582912' /><os platform='$platform' version='$osversion' arch='$bits'/><app appid='$appid' ap='$ap' version='' nextversion='' lang='' brand='GGLS' client=''><updatecheck/></app></request>"
 $body = "<?xml version='1.0' encoding='UTF-8'?><request protocol='3.0' version='1.3.23.9' shell_version='1.3.21.103' ismachine='0' sessionid='{00000000-0000-0000-0000-000000000000}' installsource='ondemandcheckforupdate' requestid='{00000000-0000-0000-0000-000000000000}' dedup='cr'><hw sse='1' sse2='1' sse3='1' ssse3='1' sse41='1' sse42='1' avx='1' physmemory='12582912' /><os platform='$platform' version='$osversion' arch='$bits'/><app appid='$appid' ap='$ap' version='' nextversion='' lang='' brand='GGLS' client=''><updatecheck/></app></request>"
 $xmlfile = ".\ChromeDownloader.xml"
 Invoke-RestMethod -Uri "https://tools.google.com/service/update2" -Method POST -Body $body -Headers $header -OutFile $xmlfile
@@ -225,8 +224,8 @@ Switch ($disposition){
 # SIG # Begin signature block
 # MIIrKwYJKoZIhvcNAQcCoIIrHDCCKxgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUnY9ARDsSA0aP4/iF16yQqipy
-# 8ZiggiQ7MIIEMjCCAxqgAwIBAgIBATANBgkqhkiG9w0BAQUFADB7MQswCQYDVQQG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUUFAN/TL26v8CqgdQ6w+8IK0p
+# 9BCggiQ7MIIEMjCCAxqgAwIBAgIBATANBgkqhkiG9w0BAQUFADB7MQswCQYDVQQG
 # EwJHQjEbMBkGA1UECAwSR3JlYXRlciBNYW5jaGVzdGVyMRAwDgYDVQQHDAdTYWxm
 # b3JkMRowGAYDVQQKDBFDb21vZG8gQ0EgTGltaXRlZDEhMB8GA1UEAwwYQUFBIENl
 # cnRpZmljYXRlIFNlcnZpY2VzMB4XDTA0MDEwMTAwMDAwMFoXDTI4MTIzMTIzNTk1
@@ -424,34 +423,34 @@ Switch ($disposition){
 # IENvZGUgU2lnbmluZyBDQSBSMzYCEQDCQwm71IrzJIwoQU/zm0zEMAkGBSsOAwIa
 # BQCgeDAYBgorBgEEAYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgor
 # BgEEAYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3
-# DQEJBDEWBBQD1drxI5SGdcMmbBTWiFlZFofVqzANBgkqhkiG9w0BAQEFAASCAgAz
-# vj+ul/hzNYh1e70sRP+b8lGw5MyYGrgFOg40V6E1vWEJ6+DnG32FzSB1guOHIJ98
-# JYKfap1+HZW2wyb6Pe0/K1FEDDCtY3YDuCbCrN5FG286iUhcVHtjBH4IzRULmdOr
-# I8r/9W4CW0jvgvn/RDGSsBC9U4Xm/ICtQJuvZ/kKO5sx2c6HhFm2K8oglgwGNrIE
-# 4383cy0DqUeIjpWBywPBsQSPdJY4WpUwwsgpgESAKtSjusz1QIujdEx7A08tKa6V
-# KJirN1XU765JR0bljSh+ByJYIfgyiK5bnkxQpF0tmuZ4CkDnD2YSvQy+tNevWlO5
-# pHbRpvqhEkdbGEdjudl0X43YvOfaiagLp3YQbr61nQkPdnVkUYNBIJc5EY2gIWlk
-# MQecaDNQC6ugpTv3uIP4X4zG9sFnms7HR8DPu52mMYveHt6vXaErInIwbTWJNxNG
-# SDETgkVuGNlB+SZqVxeUolf5jElT5OyN7Vv91XRss4vuXJsaWVPWKgVnx18lcnQG
-# Gnx8UDYeG0sug9JI2ADJtEmV40nSb1sFRv1gpmpe5f7aeEidJ3Alz2hFzPl0H8n+
-# 2vHeN9mIr07C5q9WL67rGZX8rAXExEUQ9od1CI+rk+Hm1gToQapszepu7wSShG6h
-# +2+qFsmGqayRrILuJQ4l9Y1xbTW2h6VwGgv0W4MbGaGCA0wwggNIBgkqhkiG9w0B
+# DQEJBDEWBBTc7Hn0rfgu0BliQ8hirzAl5YQcGzANBgkqhkiG9w0BAQEFAASCAgBn
+# YXNIbKd6JpLQE/yZUGREW/5JFyKzf2sP7C9Ge3lRIbIm8PXjVlgUgQGCClM3U86y
+# 6rP88/7vRJWd7+WoFsa8j83FCVoGgLgoqpGSj3v8h+02p9vXhBhLj/lmvOYUQVhj
+# ddxzuRwXBbmHkyrlefGD/r+JMQuwrESL0p6g0+9BYWm9OXqYyW5kAXQzVWKawc91
+# vUON6Imjncv/jY/Pn7iIdEreCmCtvXBrPlLzumVGlOwtAbv9WJbdO4uxEMSXmqqy
+# FESUp2YuAnYGLewahY1szAy8FJXcaohdEBooc+lQ4W03asIORkllQrTpZaYoqbx2
+# GTiCf6QgOt1RrL+BYEif7jpTO3fMtyyKY8CUgA7sUjqvBqi8SPyeR2SqDwkmmkBV
+# PPh0Gc//v0aAGCj888sNXD28Wt0EaJYdngo4DsrIZK8K9e/NBOMa4G15vyWdJmCU
+# BCjhzOVY7HLADbRz3+32181zTHirfJ1PyHe9FEtjpL/rU70TQk6R2uLed5+Ar8Kf
+# 898UaQuWugJyIxsU5hPTfJe9Z/Esv0pzaB/J+3yIUln+3gypCp2t3JH/JmG22CAh
+# U97J3OFNuhwf1c/FzZeXhwh2vtFacLZGt3M1lytciSxFhReZquLKxe+023AEKVsr
+# O9eVcfeSnw2/PlNMFmO/EFrDhBIphifCGq1GMRH6+6GCA0wwggNIBgkqhkiG9w0B
 # CQYxggM5MIIDNQIBATCBkjB9MQswCQYDVQQGEwJHQjEbMBkGA1UECBMSR3JlYXRl
 # ciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3JkMRgwFgYDVQQKEw9TZWN0aWdv
 # IExpbWl0ZWQxJTAjBgNVBAMTHFNlY3RpZ28gUlNBIFRpbWUgU3RhbXBpbmcgQ0EC
 # EQCQOX+a0ko6E/K9kV8IOKlDMA0GCWCGSAFlAwQCAgUAoHkwGAYJKoZIhvcNAQkD
-# MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMjMwMzMxMjMzMDA2WjA/Bgkq
-# hkiG9w0BCQQxMgQw1Py9qZw9pzIGl5LKuwa/qsk9Na/GCjdJm+aaebZUeMv17rYv
-# cjcX/9cvU4kHNHD7MA0GCSqGSIb3DQEBAQUABIICAEk3WEfh8TRx+mNgRJQL141k
-# qv+DAY7D823YVVAUhrL+u+03lk0S2XW/Fs71Bt0ET8eSyxTznHtnKfcN6rj3ffqQ
-# omEtv96V/ZKzetAzfJ6hbNAQ2w0BqV+QUUkj3iKCjiOKqZLNPDSuq3FfY+TgNkSU
-# ndBUNNNKbDbol9T+qNUYh7LFeRX9Zx+XO1xO/VwAq+2zLx6L+gg4KynoVkkm7+5n
-# /CWF6crgWUN6QTwV1XwPUcvGZuG+sJOR1CwES8uClnO4698hItLvWZEM56+C8XU8
-# U0P9XVfDx9yvdw87IdwsHN7/I3+zu0YuocrtOoCTL+67oTj800uaLr8SAAnzFeCE
-# eQfQuq8xIi0XtbvxvwnYayykKtq0L/OnYvh/XuysHB6H7DHRncxGeb/g/8K5jgxZ
-# QhKkVEpKOz/Bxls6UH88Mh6xpdn0aaT98wxC4lzJ8IoRLJV1IYTrd+qEzd6yupiz
-# X7MkuiFsvHUCDwv3Dz35mDBuEuFjx8y7fjYeDaWgMmuZxAvV77pM9gXzbSwu/YcV
-# wdYvhKN03LXtzg5VEmFsYKHNrVKfpvSmgXI37fMXswLpsdH/lP/Z5l22FKTEoksT
-# Jj5sVG09ubRbWpkcWW5e2xh9dkCWRNudF6qqMhqvPL2DtN6EvPsMl50RIfxp9DUa
-# Mw6ulpr8SIl9GUNeJa8s
+# MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMjMwMzMxMjMzNDUyWjA/Bgkq
+# hkiG9w0BCQQxMgQwv7md84ZIM0Fm3t0HNm7zcKTOO5K813WUskVXyxD/8Dm5nH6/
+# ssIp9xL4Q/WNZmJqMA0GCSqGSIb3DQEBAQUABIICAEaHtoQ/jLAhTZavT6pLiEIA
+# 2kACTqZyPcCJYNSuj0XG5uJZzKnfHK7UhM4msHVmm7NSI49j732EK9LYVL9S3GqL
+# mSQAeochBIt/htHHA+zIdOu/EdmPqw4IBdiBUGOeW3/qixYSEb5lDQWahxYMNTST
+# YXkBdJADq1DrZ/4tt/owfDboiafUbwnDWPWiekgozSopoPcMWWQLg1sfIussWTuZ
+# 8/p+OzNSDrrwZ4KgNzKTsk3Gz4pQ+MEbOJQF10sgkuGNEJzpMDZLa6ANTlP514ab
+# +pKrLL0KqI/SPn7A6xFt86TR5mz6Cx2zqwvge3XTd4ZkZv8uXBvfEc+iSFacpuS0
+# KzRWubyMTiIsUndN7/e9tGWZo2SX8L3kSS/YP3U88lwEKpEf2NlI/CvsqdOZM0Vc
+# qCFLx6OL5ZcrcgaDUPNj7lD9oo/Ye+EEYJa/v5lqEjp5L9Eqnf+IuTXsihz0DNrq
+# sEc3jHTc58RlGvZ42xEff5u8I5bACzqhUF8qBRiKFuacdfPglvCaC2LN3o/Jkniy
+# 6jQ8imSqfeFf+zyvXa3Q1FGSoOUc0g6n+/MFVJ5TOlRacUWBSa34sy0FPpAbRTDM
+# 2q0+gKdXLhkTWjyz167+esbirE2q9dCXI2S18+cfWKNQC9hkEk+krOiBMRRiRM/2
+# Jg8hbxvtJEtJ0uC8ydn6
 # SIG # End signature block
