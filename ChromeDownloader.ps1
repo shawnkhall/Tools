@@ -1,7 +1,7 @@
 
 <#PSScriptInfo
 
-.VERSION 1.0
+.VERSION 1.1
 
 .GUID c65575a3-2b12-461e-99b3-35dfd0e644b4
 
@@ -26,6 +26,7 @@
 .EXTERNALSCRIPTDEPENDENCIES 
 
 .RELEASENOTES
+ 1.1: Add JSON export support
  1.0: Initial release
 
 #> 
@@ -53,7 +54,7 @@
  Specifies the OS version (Windows only): 11, 10, 2012
 
 .PARAMETER disposition
- Specifies disposition: url, download, info, xml
+ Specifies disposition: url, download, info, xml, json
 
 .PARAMETER overwrite
  When disposition is download, determines if an existing file should be overwritten: $true, $false
@@ -95,7 +96,7 @@ Param(
 	[Alias("OS")]
 	[string] $osversion = '10.0', 
 	
-	[ValidateSet('url', 'download', 'info', 'xml', IgnoreCase = $false)]
+	[ValidateSet('url', 'download', 'info', 'xml', 'json', IgnoreCase = $false)]
 	[Alias("Do")]
 	[string] $disposition = 'download',
 	
@@ -103,7 +104,6 @@ Param(
 	
 	[boolean] $rename = $false
 )
-
 
 
 function formatXML([xml]$xml, [string]$path="", [boolean]$omitprolog=$true) {
@@ -123,6 +123,32 @@ function formatXML([xml]$xml, [string]$path="", [boolean]$omitprolog=$true) {
 		$sb.ToString() | out-file $path
 	}
 	return $sb.ToString()
+}
+
+
+function formatJSON([xml]$xml, [string]$path="") {
+	$args	= $xml.SelectSingleNode("//response/app/updatecheck/manifest/actions/action").arguments
+	$package	= $xml.SelectSingleNode("//response/app/updatecheck/manifest/packages/package/@name").Value
+	$sha1	= $xml.SelectSingleNode("//response/app/updatecheck/manifest/packages/package/@hash").Value
+	$sha256	= $xml.SelectSingleNode("//response/app/updatecheck/manifest/packages/package/@hash_sha256").Value
+	$size	= $xml.SelectSingleNode("//response/app/updatecheck/manifest/packages/package/@size").Value
+	$url	= $xml.SelectSingleNode('//response/app/updatecheck/urls/url[last()]/@codebase').Value
+	$version	= $xml.SelectSingleNode("//response/app/updatecheck/manifest/@version").Value
+	$props	= [ordered]@{
+		'version'	= $version
+		'package'	= $package
+		'arguments'	= $args
+		'sha1'	= $sha1
+		'sha256'	= $sha256
+		'size'	= $size
+		'url'	= "$($url)$($package)"
+	}
+	$array	= New-Object -Type PSCustomObject -Property $props
+	$json	= ($array | ConvertTo-Json)
+	if($path){
+		$json | out-file $path
+	}
+	return $json
 }
 
 
@@ -208,8 +234,9 @@ if($rename){
 # generate output
 Switch ($disposition){
 	'url'	{ echo "$url$package" }
-	'info'	{ echo "Version: $version" "Url: $url$package" "File: $package" "Hash: $sha256" "Size: $size" "" }
+	'info'	{ echo "Version: $version" "Url: $url$package" "File: $package" "Hash: $sha256" "Size: $size" }
 	'xml'	{ formatXML $xmlDoc }
+	'json'	{ formatJSON $xmlDoc }
 	'download'	{ 
 			if ((!(Test-Path ".\$file")) -or ((Test-Path ".\$file") -and $overwrite)) {
 				Invoke-WebRequest -Uri "$url$package" -OutFile ".\$file"
@@ -224,8 +251,8 @@ Switch ($disposition){
 # SIG # Begin signature block
 # MIIrKwYJKoZIhvcNAQcCoIIrHDCCKxgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUUFAN/TL26v8CqgdQ6w+8IK0p
-# 9BCggiQ7MIIEMjCCAxqgAwIBAgIBATANBgkqhkiG9w0BAQUFADB7MQswCQYDVQQG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUxvySqE1h+ZTm3uAS7FK1vSc3
+# zdaggiQ7MIIEMjCCAxqgAwIBAgIBATANBgkqhkiG9w0BAQUFADB7MQswCQYDVQQG
 # EwJHQjEbMBkGA1UECAwSR3JlYXRlciBNYW5jaGVzdGVyMRAwDgYDVQQHDAdTYWxm
 # b3JkMRowGAYDVQQKDBFDb21vZG8gQ0EgTGltaXRlZDEhMB8GA1UEAwwYQUFBIENl
 # cnRpZmljYXRlIFNlcnZpY2VzMB4XDTA0MDEwMTAwMDAwMFoXDTI4MTIzMTIzNTk1
@@ -423,34 +450,34 @@ Switch ($disposition){
 # IENvZGUgU2lnbmluZyBDQSBSMzYCEQDCQwm71IrzJIwoQU/zm0zEMAkGBSsOAwIa
 # BQCgeDAYBgorBgEEAYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgor
 # BgEEAYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3
-# DQEJBDEWBBTc7Hn0rfgu0BliQ8hirzAl5YQcGzANBgkqhkiG9w0BAQEFAASCAgBn
-# YXNIbKd6JpLQE/yZUGREW/5JFyKzf2sP7C9Ge3lRIbIm8PXjVlgUgQGCClM3U86y
-# 6rP88/7vRJWd7+WoFsa8j83FCVoGgLgoqpGSj3v8h+02p9vXhBhLj/lmvOYUQVhj
-# ddxzuRwXBbmHkyrlefGD/r+JMQuwrESL0p6g0+9BYWm9OXqYyW5kAXQzVWKawc91
-# vUON6Imjncv/jY/Pn7iIdEreCmCtvXBrPlLzumVGlOwtAbv9WJbdO4uxEMSXmqqy
-# FESUp2YuAnYGLewahY1szAy8FJXcaohdEBooc+lQ4W03asIORkllQrTpZaYoqbx2
-# GTiCf6QgOt1RrL+BYEif7jpTO3fMtyyKY8CUgA7sUjqvBqi8SPyeR2SqDwkmmkBV
-# PPh0Gc//v0aAGCj888sNXD28Wt0EaJYdngo4DsrIZK8K9e/NBOMa4G15vyWdJmCU
-# BCjhzOVY7HLADbRz3+32181zTHirfJ1PyHe9FEtjpL/rU70TQk6R2uLed5+Ar8Kf
-# 898UaQuWugJyIxsU5hPTfJe9Z/Esv0pzaB/J+3yIUln+3gypCp2t3JH/JmG22CAh
-# U97J3OFNuhwf1c/FzZeXhwh2vtFacLZGt3M1lytciSxFhReZquLKxe+023AEKVsr
-# O9eVcfeSnw2/PlNMFmO/EFrDhBIphifCGq1GMRH6+6GCA0wwggNIBgkqhkiG9w0B
+# DQEJBDEWBBSCaheRwifoazgLrN9lvEHzJCKGEjANBgkqhkiG9w0BAQEFAASCAgCb
+# 3220lp7VMS6ywNwITVNdiii/O0R0ZdTTTiefOfuba24zW7hnrs+nuTUt85ysX3GM
+# 5ZHZZjClkuAuGOEdvtsYI4djeKBmlChbMK6BKbEFggSQo9PBc3oHp/2LgbICXkgj
+# Ds5n85sbD44bDlPDi0QnDT4soTxjkTxHGuMJ9JrZ87cL8/2K4tjbna7CtHAl7CEt
+# zMgMHjvVAO5/aHgxHWpTOuwgMrAUDnmrctlWIJ0w6JEVvQENqBA9ctampJ1R99cF
+# vxjmti1BNGiZcalz6yr5V1clZZjLTKNnzbUEU9eRRCURj27q8k7vDEitcBQRrWjw
+# QEHGN40nQpkObWgn1762Bv8KHarLl5zgR1xUU2G8hstig0QXDASZIxPz4qL+dXMA
+# Cn1dMMKu/o9pbAHVMG6oUxoqK6Z0tounMN/i/ik4o2edA/Kp8a23yFiGSze/01d3
+# dOtkGAmA/nl/J+ZmcWTkgAyyjVg+UHltnUg6A51iRsvj9qIrUo3YFnAGXysfThHY
+# 9d5iwJpZCWFGWGnya77+aMNPd/t78Oo1bGY7jGLp1hVQ1CL/g9+UubDloqD5cHXU
+# 81naTv+ACASM7ASOKH7TAgLA0QnZwf1wkw+w1XFe1H1Oc/oNcBl8zjzowwDQRKWA
+# icTs9d6x4l2YYoUwmT6W2yh5nHdeuukGF1wWpmHRTaGCA0wwggNIBgkqhkiG9w0B
 # CQYxggM5MIIDNQIBATCBkjB9MQswCQYDVQQGEwJHQjEbMBkGA1UECBMSR3JlYXRl
 # ciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3JkMRgwFgYDVQQKEw9TZWN0aWdv
 # IExpbWl0ZWQxJTAjBgNVBAMTHFNlY3RpZ28gUlNBIFRpbWUgU3RhbXBpbmcgQ0EC
 # EQCQOX+a0ko6E/K9kV8IOKlDMA0GCWCGSAFlAwQCAgUAoHkwGAYJKoZIhvcNAQkD
-# MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMjMwMzMxMjMzNDUyWjA/Bgkq
-# hkiG9w0BCQQxMgQwv7md84ZIM0Fm3t0HNm7zcKTOO5K813WUskVXyxD/8Dm5nH6/
-# ssIp9xL4Q/WNZmJqMA0GCSqGSIb3DQEBAQUABIICAEaHtoQ/jLAhTZavT6pLiEIA
-# 2kACTqZyPcCJYNSuj0XG5uJZzKnfHK7UhM4msHVmm7NSI49j732EK9LYVL9S3GqL
-# mSQAeochBIt/htHHA+zIdOu/EdmPqw4IBdiBUGOeW3/qixYSEb5lDQWahxYMNTST
-# YXkBdJADq1DrZ/4tt/owfDboiafUbwnDWPWiekgozSopoPcMWWQLg1sfIussWTuZ
-# 8/p+OzNSDrrwZ4KgNzKTsk3Gz4pQ+MEbOJQF10sgkuGNEJzpMDZLa6ANTlP514ab
-# +pKrLL0KqI/SPn7A6xFt86TR5mz6Cx2zqwvge3XTd4ZkZv8uXBvfEc+iSFacpuS0
-# KzRWubyMTiIsUndN7/e9tGWZo2SX8L3kSS/YP3U88lwEKpEf2NlI/CvsqdOZM0Vc
-# qCFLx6OL5ZcrcgaDUPNj7lD9oo/Ye+EEYJa/v5lqEjp5L9Eqnf+IuTXsihz0DNrq
-# sEc3jHTc58RlGvZ42xEff5u8I5bACzqhUF8qBRiKFuacdfPglvCaC2LN3o/Jkniy
-# 6jQ8imSqfeFf+zyvXa3Q1FGSoOUc0g6n+/MFVJ5TOlRacUWBSa34sy0FPpAbRTDM
-# 2q0+gKdXLhkTWjyz167+esbirE2q9dCXI2S18+cfWKNQC9hkEk+krOiBMRRiRM/2
-# Jg8hbxvtJEtJ0uC8ydn6
+# MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMjMwNDAxMjE0ODQ1WjA/Bgkq
+# hkiG9w0BCQQxMgQwinTUURpM/A8ZcJOCPw3sPTPwFica9hMoM83Qtmb05Qf6RKqG
+# vfAa1xV1ACxIyGY2MA0GCSqGSIb3DQEBAQUABIICAA1qXntOdiQj/UobxTeU/lP0
+# ZF5A+SM9/03Jv+Ff17Q8L0LBhZvkj9vweHqww0KZ6k0c183XOjk8HkL+5CT75eY7
+# aFTD+uK9oDE7pL5vcLT6qt2NfO5HcltdJOqn84YnRUtAiT/2+Wd5PIEph6VD9jYI
+# tIP16sEhVzfDFO8aL4xS6Qfgm3UzSMPwJkMhcPEo2QB7syzfgenVF5ra3g4xz+nJ
+# imiC00+1GN1tKedvyrZbW1BpUyWaCCvOohnqIYxuQM6egeHfvV2KIlKkH42kNH0A
+# 8LZXhVr2NB/EVDcK2QeHAG8x8mL1TZ2bwnC6yiCh2VWod7wiYMFIJPxZd1YdqGBy
+# 8g4KAP38y14jd0DbTGHbrfUfgdTbFExVgLGAlHZXdPtJeVuUTE4SCpg40ZR3uIbZ
+# j8Ld1W4Q0RhZ5lN+M3ahVcAIZApCyGgv3dizimpWzK0LlWrzICd2X8p7A2x1FDkT
+# kqzMlzK8bNkpidqpSMbcRergn0El5+QkCll0EBKTnE884+MD52Oq/KYzMLvSYqHU
+# jjV0Umc0nk3+lUqpwCslu1ddI0zgQ9hbs/F0IWOTJdk/jBYo1CrXoxCqn54l5o1m
+# D8b7nMNG58MJoTH7k8znEd42flZgotE+kOr7uAQfTt1PS9qXCL313BnkpPoC6MXJ
+# TddJRGO118sQB31ZLxLM
 # SIG # End signature block
