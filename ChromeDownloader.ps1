@@ -1,7 +1,7 @@
 
 <#PSScriptInfo
 
-.VERSION 1.1
+.VERSION 1.2
 
 .GUID c65575a3-2b12-461e-99b3-35dfd0e644b4
 
@@ -26,6 +26,7 @@
 .EXTERNALSCRIPTDEPENDENCIES 
 
 .RELEASENOTES
+ 1.2: Add option to assign the prefix for output and binary files, bug fixes, verbosity
  1.1: Add JSON export support
  1.0: Initial release
 
@@ -51,16 +52,25 @@
  Specifies the release type: stable, beta, dev or canary
 
 .PARAMETER osversion
- Specifies the OS version (Windows only): 11, 10, 2012
+ Specifies the OS version: 7, 8, 10, 11, 12, 13, 2012
 
 .PARAMETER disposition
  Specifies disposition: url, download, info, xml, json
 
 .PARAMETER overwrite
- When disposition is download, determines if an existing file should be overwritten: $true, $false
+ When disposition is download, determines if an existing file should be overwritten
 
 .PARAMETER rename
- When disposition is download, inserts bit-type into downloaded filename: $true, $false
+ When disposition is download, inserts bit-type into downloaded filename. This option has no effect when -prefix is in use.
+
+.PARAMETER jsonsave
+ Save the JSON output to a file
+
+.PARAMETER xmlsave
+ Save the XML output to a file
+
+.PARAMETER prefix
+ Specify a custom naming pattern. The following strings will be replaced with their values: %platform/%p, %bits/%b, %osversion/%osv, %release/%r, %version/%v
 
 .EXAMPLE
  .\ChromeDownloader.ps1 win 64 
@@ -69,6 +79,10 @@
 .EXAMPLE
  .\ChromeDownloader.ps1 win 64 -os 2012 -do info
  Displays information about the latest 64-bit build of Chrome for Windows Server 2012
+
+.EXAMPLE
+ .\ChromeDownloader.ps1 -do download -jsonsave $true -xmlsave $true -prefix 'C:/Browsers/Chrome-%v_%p%osv_%b_%r'
+ Downloads the current build of Chrome x64 for Windows to a file under C:/Browsers, named to include the version of Chrome, the platform and OS version, the bit-type and release type, as well as creating both an XML and a JSON file with details about the download in the same location beside the binary.
 
 .EXAMPLE
  .\ChromeDownloader.ps1 win 64 -release beta -os 10 -rename $true
@@ -82,57 +96,76 @@
 
 
 Param(
-	[ValidateSet('win', 'mac', IgnoreCase = $false)]
-	[string] $platform = 'win', 
+	[ValidateSet("win", "mac", IgnoreCase = $false)]
+	[Alias("P")]
+	[string] $platform = "win", 
 	
-	[ValidateSet('x64', '64', 'x86', '32', IgnoreCase = $false)]
-	[string] $bits = 'x64', 
+	[ValidateSet("x64", "64", "x86", "32", IgnoreCase = $false)]
+	[Alias("B")]
+	[string] $bits = "x64", 
 	
-	[ValidateSet('stable', 'beta', 'dev', 'canary', IgnoreCase = $false)]
+	[ValidateSet("stable", "beta", "dev", "canary", IgnoreCase = $false)]
 	[Alias("Rel")]
-	[string] $release = 'stable', 
+	[string] $release = "stable", 
 	
-	[ValidateSet('11.0', '11', '10.0', '10', '6.3', '2012', '2012r2', '46.0.2490.86', IgnoreCase = $false)]
+	[ValidateSet("2012", "2012r2", "6.3", "7", "7.0", "10", "10.0", "11", "11.0", "12", "12.0", "13", "13.0", IgnoreCase = $false)]
 	[Alias("OS")]
-	[string] $osversion = '10.0', 
+	[string] $osversion = "10.0", 
 	
-	[ValidateSet('url', 'download', 'info', 'xml', 'json', IgnoreCase = $false)]
+	[ValidateSet("url", "download", "info", "xml", "json", IgnoreCase = $false)]
 	[Alias("Do")]
-	[string] $disposition = 'download',
+	[string] $disposition = "download",
 	
-	[boolean] $overwrite = $false,
+	[Alias("o", "clobber")]
+	[switch] $overwrite = $false,
 	
-	[boolean] $rename = $false
+	[Alias("Ren")]
+	[switch] $rename = $false, 
+	
+	[Alias("JS")]
+	[switch] $jsonsave = $false, 
+	
+	[Alias("XS")]
+	[switch] $xmlsave = $false, 
+	
+	[Alias("Pre")]
+	[string] $prefix = ""
 )
 
 
-function formatXML([xml]$xml, [string]$path="", [boolean]$omitprolog=$true) {
-	$sb = New-Object System.Text.StringBuilder
-	$sw = New-Object System.IO.StringWriter($sb)
-	$encoding = [System.Text.Encoding]::UTF8
-	$xmlsettings = New-Object System.Xml.XmlWriterSettings
-	$xmlsettings.Encoding = $encoding
-	$xmlsettings.Indent = $true
-	$xmlsettings.OmitXmlDeclaration = $omitprolog
-	$xmlsettings.IndentChars = "`t"
-	$xmlsettings.NewLineOnAttributes = $false
-	$wr = [System.XML.XmlWriter]::Create($sw, $xmlsettings)
+function cdFormatXML([xml]$xml, [string]$logpath="", [boolean]$omitprolog=$true) {
+	Write-Verbose	"cdFormatXML"
+	Write-Verbose	"  logpath:	$logpath"
+	Write-Verbose	"  omitprolog:	$omitprolog"
+	$sb	= New-Object System.Text.StringBuilder
+	$sw	= New-Object System.IO.StringWriter($sb)
+	$encoding	= [System.Text.Encoding]::UTF8
+	$xmlsettings	= New-Object System.Xml.XmlWriterSettings
+	$xmlsettings.Encoding	= $encoding
+	$xmlsettings.Indent	= $true
+	$xmlsettings.OmitXmlDeclaration	= $omitprolog
+	$xmlsettings.IndentChars	= "`t"
+	$xmlsettings.NewLineOnAttributes	= $false
+	$wr	= [System.XML.XmlWriter]::Create($sw, $xmlsettings)
 	$wr.Flush()
 	$xml.Save($wr)
-	if($path){
-		$sb.ToString() | out-file $path
+	if($logpath){
+		$sb.ToString() | Set-Content -Path ($logpath -replace "'", "")
+	}else{
+		return $sb.ToString()
 	}
-	return $sb.ToString()
 }
 
 
-function formatJSON([xml]$xml, [string]$path="") {
+function cdFormatJSON([xml]$xml, [string]$jsonpath="") {
+	Write-Verbose	"cdFormatJSON"
+	Write-Verbose	"  jsonpath:	$jsonpath"
 	$args	= $xml.SelectSingleNode("//response/app/updatecheck/manifest/actions/action").arguments
 	$package	= $xml.SelectSingleNode("//response/app/updatecheck/manifest/packages/package/@name").Value
 	$sha1	= $xml.SelectSingleNode("//response/app/updatecheck/manifest/packages/package/@hash").Value
 	$sha256	= $xml.SelectSingleNode("//response/app/updatecheck/manifest/packages/package/@hash_sha256").Value
 	$size	= $xml.SelectSingleNode("//response/app/updatecheck/manifest/packages/package/@size").Value
-	$url	= $xml.SelectSingleNode('//response/app/updatecheck/urls/url[last()]/@codebase').Value
+	$url	= $xml.SelectSingleNode("//response/app/updatecheck/urls/url[last()]/@codebase").Value
 	$version	= $xml.SelectSingleNode("//response/app/updatecheck/manifest/@version").Value
 	$props	= [ordered]@{
 		'version'	= $version
@@ -145,114 +178,187 @@ function formatJSON([xml]$xml, [string]$path="") {
 	}
 	$array	= New-Object -Type PSCustomObject -Property $props
 	$json	= ($array | ConvertTo-Json)
-	if($path){
-		$json | out-file $path
+	if($jsonpath){
+		$json | Set-Content -Path ($jsonpath -replace "'", "")
+	}else{
+		return $json
 	}
-	return $json
 }
 
 
 # parse input
+$thisversion	= (((Get-Content($PSCommandPath)) -match '\.VERSION\s+(.+)') -split " ")[1];
+Write-Verbose	"ChromeDownloader.ps1 $thisversion"
+Write-Verbose	""
+Write-Verbose	"  platform:	$platform"
+Write-Verbose	"  bits:	$bits"
+Write-Verbose	"  release:	$release"
+Write-Verbose	"  osversion:	$osversion"
+Write-Verbose	"  disposition:	$disposition"
+Write-Verbose	"  overwrite:	$overwrite"
+Write-Verbose	"  rename:	$rename"
+Write-Verbose	"  jsonsave:	$jsonsave"
+Write-Verbose	"  xmlsave:	$xmlsave"
+Write-Verbose	"  prefix:	$prefix"
+
+
 Switch ($platform) {
 	'win' {
-		$appid = '{8A69D345-D564-463C-AFF1-A69D9E530F96}'
+		$ext	= '.exe'
+		$appid	= '{8A69D345-D564-463C-AFF1-A69D9E530F96}'
 		Switch ($osversion) {
-			{ @('11.0', '11', '10.0', '10', '6.3') -contains $_ } { break }
-			{ @('2012', '2012r2') -contains $_ } { $osversion = '6.3'; break }
+			{ @('7', '7.0', '10', '10.0', '11', '11.0' ) -contains $_ } { break }
+			{ @('6.3', '8', '8.0', '8.1', '2012', '2012r2') -contains $_ } { $osversion = '6.3'; break }
 			default	{ $osversion = '10.0'; break }
 		}
 		Switch ($bits) {
 			{ @('x64', '64') -contains $_ } {
-				$bits = 'x64'
+				$bits	= 'x64'
 				Switch ($release) {
-					'stable'	{ $ap = 'x64-stable-multi-chrome'; break }
-					'beta'	{ $ap = 'x64-beta-multi-chrome'; break }
-					'dev'	{ $ap = 'x64-dev-multi-chrome'; break }
-					'canary'	{ $ap = 'x64-canary'; $appid = '{4EA16AC7-FD5A-47C3-875B-DBF4A2008C20}'; break }
-					default	{ $ap = 'x64-stable-multi-chrome'; break }
+					'stable'	{ $ap = 'x64-stable-multi-chrome'; 	break }
+					'beta'	{ $ap = 'x64-beta-multi-chrome'; 	break }
+					'dev'	{ $ap = 'x64-dev-multi-chrome'; 	break }
+					'canary'	{ $ap = 'x64-canary'; $appid = '{4EA16AC7-FD5A-47C3-875B-DBF4A2008C20}'; 	break }
+					default	{ $ap = 'x64-stable-multi-chrome'; 	break }
 				}
 			}
 			{ @('x86', '32') -contains $_ } {
-				$bits = 'x86'
+				$bits	= 'x86'
 				Switch ($release) {
-					'stable'	{ $ap = '-multi-chrome'; break }
-					'beta'	{ $ap = '1.1-beta'; break }
-					{ @('dev','canary') -contains $_ } { $ap = '2.0-dev'; break }
-					default	{ $ap = '-multi-chrome'; break }
+					'stable'	{ $ap = '-multi-chrome'; 	break }
+					'beta'	{ $ap = '1.1-beta'; 	break }
+					{ @('dev','canary') -contains $_ }	{ $ap = '2.0-dev'; 	break }
+					default	{ $ap = '-multi-chrome'; 	break }
 				}
 			}
 			default {
-				$bits = 'x64';
-				$release = 'stable';
-				$ap = 'x64-stable-multi-chrome'
+				$bits	= 'x64'
+				$release	= 'stable'
+				$ap	= 'x64-stable-multi-chrome'
 			}
 		}
 	}
 	{ @('mac', 'macos') -contains $_ } {
-		$osversion = '46.0.2490.86';
+		$ext	= '.dmg'
+		$bits	= 'x64'
+		Switch ($osversion) {
+			{ @('10', '10.0') -contains $_ } { $osversion = "11.0"; break }
+			{ @('11.0', '12.0', '13.0') -contains $_ } { break }
+			{ @('11', '12', '13') -contains $_ } { $osversion = "$osversion.0"; break }
+			default	{ $osversion = '13.0'; break }
+		}
 		Switch ($release) {
-			'stable'	{ $ap = ''; $appid = 'com.google.Chrome'; break }
-			'beta'	{ $ap = 'betachannel'; $appid = 'com.google.Chrome.Beta'; break }
-			'dev'	{ $ap = 'devchannel'; $appid = 'com.google.Chrome.Dev'; break }
-			'canary'	{ $ap = ''; $appid = 'com.google.Chrome.Canary'; break }
-			default	{ $ap = ''; $appid = 'com.google.Chrome'; break }
+			'stable'	{ $ap = ''; 	$appid = 'com.google.Chrome'; 	break }
+			'beta'	{ $ap = 'betachannel'; 	$appid = 'com.google.Chrome.Beta'; 	break }
+			'dev'	{ $ap = 'devchannel'; 	$appid = 'com.google.Chrome.Dev'; 	break }
+			'canary'	{ $ap = ''; 	$appid = 'com.google.Chrome.Canary'; 	break }
+			default	{ $ap = ''; 	$appid = 'com.google.Chrome'; 	break }
 		}
 	}
 	default {
-		$platform = 'win'
-		$bits = 'x64'
-		$release = 'stable'
-		$osversion = '10.0'
-		$ap = 'x64-stable-multi-chrome'
-		$appid = '{8A69D345-D564-463C-AFF1-A69D9E530F96}'
+		$platform	= 'win'
+		$bits	= 'x64'
+		$release	= 'stable'
+		$osversion	= '10.0'
+		$ap	= 'x64-stable-multi-chrome'
+		$appid	= '{8A69D345-D564-463C-AFF1-A69D9E530F96}'
 	}
 }
-
+Write-Verbose	"  ap:	$ap"
+Write-Verbose	"  appid:	$appid"
 
 # generate the initial request
-$header = @{ "Accept"="text/xml"; "Content-Type"="text/xml" }
-$body = "<?xml version='1.0' encoding='UTF-8'?><request protocol='3.0' version='1.3.23.9' shell_version='1.3.21.103' ismachine='0' sessionid='{00000000-0000-0000-0000-000000000000}' installsource='ondemandcheckforupdate' requestid='{00000000-0000-0000-0000-000000000000}' dedup='cr'><hw sse='1' sse2='1' sse3='1' ssse3='1' sse41='1' sse42='1' avx='1' physmemory='12582912' /><os platform='$platform' version='$osversion' arch='$bits'/><app appid='$appid' ap='$ap' version='' nextversion='' lang='' brand='GGLS' client=''><updatecheck/></app></request>"
-$xmlfile = ".\ChromeDownloader.xml"
+Write-Verbose	""
+Write-Verbose	"Update check"
+$header	= @{ "Accept"="text/xml"; "Content-Type"="text/xml" }
+Write-Verbose 	"  header:	$header"
+$body	= "<?xml version='1.0' encoding='UTF-8'?><request protocol='3.0' version='1.3.23.9' shell_version='1.3.21.103' ismachine='0' sessionid='{00000000-0000-0000-0000-000000000000}' installsource='ondemandcheckforupdate' requestid='{00000000-0000-0000-0000-000000000000}' dedup='cr'><hw sse='1' sse2='1' sse3='1' ssse3='1' sse41='1' sse42='1' avx='1' physmemory='12582912' /><os platform='$platform' version='$osversion' arch='$bits'/><app appid='$appid' ap='$ap' version='' nextversion='' lang='' brand='GGLS' client=''><updatecheck/></app></request>"
+Write-Verbose 	"  body:	$body"
+$xmlfile	= New-TemporaryFile
+Write-Verbose 	"  xmlfile:	$xmlfile"
 Invoke-RestMethod -Uri "https://tools.google.com/service/update2" -Method POST -Body $body -Headers $header -OutFile $xmlfile
 
 
 # parse the results
-$xmlDoc = [xml](Get-Content -Path $xmlfile -Encoding UTF8)
-$url    = $xmlDoc.SelectSingleNode('//response/app/updatecheck/urls/url[last()]/@codebase').Value
-$version= $xmlDoc.SelectSingleNode("//response/app/updatecheck/manifest/@version").Value
-$package= $xmlDoc.SelectSingleNode("//response/app/updatecheck/manifest/packages/package/@name").Value
-$size   = $xmlDoc.SelectSingleNode("//response/app/updatecheck/manifest/packages/package/@size").Value
-$sha256 = $xmlDoc.SelectSingleNode("//response/app/updatecheck/manifest/packages/package/@hash_sha256").Value
+Write-Verbose	""
+Write-Verbose	"Response"
+$xmlDoc	= [xml](Get-Content -Path $xmlfile -Encoding UTF8)
+$status	= $xmlDoc.SelectSingleNode("//response/app/updatecheck/@status").Value
+Write-Verbose	"  status:	$status"
+$url	= $xmlDoc.SelectSingleNode("//response/app/updatecheck/urls/url[last()]/@codebase").Value
+Write-Verbose	"  url:	$url"
+$version	= $xmlDoc.SelectSingleNode("//response/app/updatecheck/manifest/@version").Value
+Write-Verbose	"  version:	$version"
+$package	= $xmlDoc.SelectSingleNode("//response/app/updatecheck/manifest/packages/package/@name").Value
+Write-Verbose	"  package:	$package"
+$size	= $xmlDoc.SelectSingleNode("//response/app/updatecheck/manifest/packages/package/@size").Value
+Write-Verbose	"  size:	$size"
+$sha256	= $xmlDoc.SelectSingleNode("//response/app/updatecheck/manifest/packages/package/@hash_sha256").Value
+Write-Verbose	"  sha256:	$sha256"
+
 
 # rename the download file if requested
+Write-Verbose	""
+Write-Verbose	"Output formatting"
+Write-Verbose	"  file[0]:	$file"
 if($rename){
-	$file = $package -replace ".exe", "_$bits.exe"
+	$file	= $package -replace "$ext", "_$bits"
 } else {
-	$file = $package
+	$file	= $package -replace "$ext", ""
 }
+Write-Verbose	"  file[1]:	$file"
+
+# format prefix
+if($prefix){
+	$prefix	= $prefix -replace "%osversion", "$osversion"
+	$prefix	= $prefix -replace "%bits", "$bits"
+	$prefix	= $prefix -replace "%platform", "$platform"
+	$prefix	= $prefix -replace "%osv", "$osversion"
+	$prefix	= $prefix -replace "%os", "$platform"
+	$prefix	= $prefix -replace "%release", "$release"
+	$prefix	= $prefix -replace "%version", "$version"
+	$prefix	= $prefix -replace "%b", "$bits"
+	$prefix	= $prefix -replace "%p", "$platform"
+	$prefix	= $prefix -replace "%r", "$release"
+	$prefix	= $prefix -replace "%v", "$version"
+	if(!($prefix.Contains('\') -or $prefix.Contains('/'))){
+		$prefix = "./$prefix"
+	}
+	$file	= $prefix
+}
+Write-Verbose	"  file[2]:	$file"
+
 
 # generate output
-Switch ($disposition){
-	'url'	{ echo "$url$package" }
-	'info'	{ echo "Version: $version" "Url: $url$package" "File: $package" "Hash: $sha256" "Size: $size" }
-	'xml'	{ formatXML $xmlDoc }
-	'json'	{ formatJSON $xmlDoc }
-	'download'	{ 
-			if ((!(Test-Path ".\$file")) -or ((Test-Path ".\$file") -and $overwrite)) {
-				Invoke-WebRequest -Uri "$url$package" -OutFile ".\$file"
-			} else {
-				"File '$file' exists."
+if($status -eq 'ok'){
+	Switch ($disposition){
+		'url'	{ echo "$url$package"; break }
+		'info'	{ echo "Version: $version" "Url: $url$package" "File: $package" "Hash: $sha256" "Size: $size" "Status: $status"; break }
+		'xml'	{ cdFormatXML  $xmlDoc; break }
+		'json'	{ cdFormatJSON $xmlDoc; break }
+		'download'	{ 
+				if ((!(Test-Path "$file$ext")) -or ((Test-Path "$file$ext") -and $overwrite)) {
+					Invoke-WebRequest -Uri "$url$package" -OutFile "$file$ext"
+				} else {
+					"File '$file$ext' exists."
+				}
+				break
 			}
-		}
-	default	{ echo "$url$package" }
+		default	{ echo "$url$package" }
+	}
+	if($jsonsave){ cdFormatJSON $xmlDoc ("$file.json") }
+	if($xmlsave){  cdFormatXML  $xmlDoc ("$file.xml") }
+}else{
+	'Error.'
 }
+Remove-Item $xmlfile
 
 
 # SIG # Begin signature block
 # MIIrKwYJKoZIhvcNAQcCoIIrHDCCKxgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUxvySqE1h+ZTm3uAS7FK1vSc3
-# zdaggiQ7MIIEMjCCAxqgAwIBAgIBATANBgkqhkiG9w0BAQUFADB7MQswCQYDVQQG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUV5UTURcF3MzA+8cym2R0cnO2
+# qkKggiQ7MIIEMjCCAxqgAwIBAgIBATANBgkqhkiG9w0BAQUFADB7MQswCQYDVQQG
 # EwJHQjEbMBkGA1UECAwSR3JlYXRlciBNYW5jaGVzdGVyMRAwDgYDVQQHDAdTYWxm
 # b3JkMRowGAYDVQQKDBFDb21vZG8gQ0EgTGltaXRlZDEhMB8GA1UEAwwYQUFBIENl
 # cnRpZmljYXRlIFNlcnZpY2VzMB4XDTA0MDEwMTAwMDAwMFoXDTI4MTIzMTIzNTk1
@@ -450,34 +556,34 @@ Switch ($disposition){
 # IENvZGUgU2lnbmluZyBDQSBSMzYCEQDCQwm71IrzJIwoQU/zm0zEMAkGBSsOAwIa
 # BQCgeDAYBgorBgEEAYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgor
 # BgEEAYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3
-# DQEJBDEWBBSCaheRwifoazgLrN9lvEHzJCKGEjANBgkqhkiG9w0BAQEFAASCAgCb
-# 3220lp7VMS6ywNwITVNdiii/O0R0ZdTTTiefOfuba24zW7hnrs+nuTUt85ysX3GM
-# 5ZHZZjClkuAuGOEdvtsYI4djeKBmlChbMK6BKbEFggSQo9PBc3oHp/2LgbICXkgj
-# Ds5n85sbD44bDlPDi0QnDT4soTxjkTxHGuMJ9JrZ87cL8/2K4tjbna7CtHAl7CEt
-# zMgMHjvVAO5/aHgxHWpTOuwgMrAUDnmrctlWIJ0w6JEVvQENqBA9ctampJ1R99cF
-# vxjmti1BNGiZcalz6yr5V1clZZjLTKNnzbUEU9eRRCURj27q8k7vDEitcBQRrWjw
-# QEHGN40nQpkObWgn1762Bv8KHarLl5zgR1xUU2G8hstig0QXDASZIxPz4qL+dXMA
-# Cn1dMMKu/o9pbAHVMG6oUxoqK6Z0tounMN/i/ik4o2edA/Kp8a23yFiGSze/01d3
-# dOtkGAmA/nl/J+ZmcWTkgAyyjVg+UHltnUg6A51iRsvj9qIrUo3YFnAGXysfThHY
-# 9d5iwJpZCWFGWGnya77+aMNPd/t78Oo1bGY7jGLp1hVQ1CL/g9+UubDloqD5cHXU
-# 81naTv+ACASM7ASOKH7TAgLA0QnZwf1wkw+w1XFe1H1Oc/oNcBl8zjzowwDQRKWA
-# icTs9d6x4l2YYoUwmT6W2yh5nHdeuukGF1wWpmHRTaGCA0wwggNIBgkqhkiG9w0B
+# DQEJBDEWBBTfD1QMiznQvZ+DRh+OOYPGjPg1kTANBgkqhkiG9w0BAQEFAASCAgA4
+# 3FKe+S9kGJuE19T+Q2Sim1gbGNpIZbcc3NyQTC1/Ouc7Wj5WbtjkyasndfiFA+EW
+# l1O8tNgXhT9Rwchh6gOZhSTB4mqDh68Kj/ajDfxgYdzJo0f7ZqLpdc0wauzGvSjC
+# hcEE9eP65BLhjjXbWLacBoBvz36+S7K+BwBSxIcJVc0ijmzoz7u1psbuq6v4B2gH
+# 0Hzt7aNEiJKLNDPsfNtTymbfYWl55Z3Vofh7XItm9KCXpa3GKPLbmbU5wtwyiGD/
+# GfGyzKq8gheJfrnYoleC6cKap6lHdb3bgANYDRYXgdcpdvcRY2OLRvBkxgLuu9zN
+# tPaxM6dkyAlyO22lQDh0w9uu22zW8B7pHQWmGe5ZMVSE3N34noglJCtPtjbfb2D0
+# fcKTvl8gfu/6dVSIVYw6Z+FAK5MP8UeAvGj1pHQ50vdgM8vb20+/48V8RSimUiCw
+# IYzB7LJncEOzDgPDjR65Rd1BEGEUzM8DeYmH4S/g5HjOEuYCRDkfGQH8fGdwZ9Sh
+# Hvzd//Dbn4djz/gnjpzJ2zIeoH9p11n7FNTqjQhhoXHQTTxfjXaVIAIJmel4e02t
+# rYsurjjHb7Tg5yzXTUp5fMN3cafcgFdbpn8XFS9dA4wClP6W5k4J/8EiD5JVs8uI
+# e+wsle53CoED2P7/gjUZ1cWdIbhMEw8CxZH2LUB2XKGCA0wwggNIBgkqhkiG9w0B
 # CQYxggM5MIIDNQIBATCBkjB9MQswCQYDVQQGEwJHQjEbMBkGA1UECBMSR3JlYXRl
 # ciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3JkMRgwFgYDVQQKEw9TZWN0aWdv
 # IExpbWl0ZWQxJTAjBgNVBAMTHFNlY3RpZ28gUlNBIFRpbWUgU3RhbXBpbmcgQ0EC
 # EQCQOX+a0ko6E/K9kV8IOKlDMA0GCWCGSAFlAwQCAgUAoHkwGAYJKoZIhvcNAQkD
-# MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMjMwNDAxMjE0ODQ1WjA/Bgkq
-# hkiG9w0BCQQxMgQwinTUURpM/A8ZcJOCPw3sPTPwFica9hMoM83Qtmb05Qf6RKqG
-# vfAa1xV1ACxIyGY2MA0GCSqGSIb3DQEBAQUABIICAA1qXntOdiQj/UobxTeU/lP0
-# ZF5A+SM9/03Jv+Ff17Q8L0LBhZvkj9vweHqww0KZ6k0c183XOjk8HkL+5CT75eY7
-# aFTD+uK9oDE7pL5vcLT6qt2NfO5HcltdJOqn84YnRUtAiT/2+Wd5PIEph6VD9jYI
-# tIP16sEhVzfDFO8aL4xS6Qfgm3UzSMPwJkMhcPEo2QB7syzfgenVF5ra3g4xz+nJ
-# imiC00+1GN1tKedvyrZbW1BpUyWaCCvOohnqIYxuQM6egeHfvV2KIlKkH42kNH0A
-# 8LZXhVr2NB/EVDcK2QeHAG8x8mL1TZ2bwnC6yiCh2VWod7wiYMFIJPxZd1YdqGBy
-# 8g4KAP38y14jd0DbTGHbrfUfgdTbFExVgLGAlHZXdPtJeVuUTE4SCpg40ZR3uIbZ
-# j8Ld1W4Q0RhZ5lN+M3ahVcAIZApCyGgv3dizimpWzK0LlWrzICd2X8p7A2x1FDkT
-# kqzMlzK8bNkpidqpSMbcRergn0El5+QkCll0EBKTnE884+MD52Oq/KYzMLvSYqHU
-# jjV0Umc0nk3+lUqpwCslu1ddI0zgQ9hbs/F0IWOTJdk/jBYo1CrXoxCqn54l5o1m
-# D8b7nMNG58MJoTH7k8znEd42flZgotE+kOr7uAQfTt1PS9qXCL313BnkpPoC6MXJ
-# TddJRGO118sQB31ZLxLM
+# MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMjMwNDAyMDg0ODA2WjA/Bgkq
+# hkiG9w0BCQQxMgQwxxjdeTxLvTpBxq2nGxWP0VdJKSdP9cRp8A0PACehFz+6yDYt
+# Yu1w+PFBUiVGfkVXMA0GCSqGSIb3DQEBAQUABIICAFVs+QeDxqHcKDGYXQkvZPGk
+# w1SBshwG58y332d8lUOH/XqA3rjSBakew57iv93jcafhpVI1drORrd5NKSzRFrYd
+# 5imtLcY3QCMq65dLTzs3DXrhtINi3myIO1SFUMLEIUrURdUAyFpPZ4fhPcB9ETwJ
+# AIaAcEtdQoS1NPP+ygP62g7tkBYhjd6yPkneAUmtHsppBawTMZFRSzWTdg5+jj4w
+# KxIXkBo3JAhI9uDyJPyAzASlqMcDazvYgHLIcKwVySsNA4hhrl79/Jw/IoloN6JN
+# 7l/j5WBwuKoB17xKhpnnznVgjm4IG1Dw7YqCIZYkKNseOATDSgSQJlMXHtTpleSb
+# WiTrfpf0w1baiD5ctzQslkor4Em0ta+bXSK+pY4a53FAD7zrwVNVdNKZIruvOB2c
+# N2gOOsAvoxTgLMHTGImh5GrHBs7dtg6Xawq5xPS3XB+I7nXefy4aWKk+i4dzPlWV
+# 4RKjK5kcy4MPVgl61TZH4nXwAgl/fxVD/f4hunorc5A2Jtq5NlF3e7O/goKRwjmo
+# SZb3ObuJcUKO88+YRy+nZkxyNVHcTg0LaBVZaZN5SfLigul//mITxZTkTQO3146b
+# zvWoGXo0kds/xh7EmRQyO0ueuVxBLYQxro7ieYr44OxYfBLhnOxCjgibTKJ8DK5/
+# qft0z/dmxTPCdsjtLkRh
 # SIG # End signature block
