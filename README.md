@@ -19,7 +19,7 @@ Downloads the current version of Chrome for different hardware and OS
    
 ### SYNTAX
 ```
-.\ChromeDownloader.ps1 [[-platform] <String>] [[-bits] \<String\>] [[-release] <String>] [[-osversion] <String>] [[-disposition] <String>] [[-overwrite] <Boolean>] [[-rename] <Boolean>] [<CommonParameters>]
+.\ChromeDownloader.ps1[[-platform] <String>] [[-bits] <String>] [[-release] <String>] [[-osversion] <String>] [[-disposition] <String>] [-overwrite] [-rename] [-jsonsave] [-xmlsave] [[-prefix] <String>] [<CommonParameters>]
 ```
 
 
