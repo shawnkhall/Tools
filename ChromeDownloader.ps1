@@ -53,7 +53,7 @@
  Specifies the release type: stable, beta, dev or canary
 
 .PARAMETER osversion
- Specifies the OS version: 7, 8, 10, 11, 12, 13, 2012
+ Specifies the OS version: 6.3, 7, 8, 10, 11, 12, 13, 2012
 
 .PARAMETER disposition
  Specifies disposition: url, download, info, xml, json
@@ -82,11 +82,11 @@
  Displays information about the latest 64-bit build of Chrome for Windows Server 2012
 
 .EXAMPLE
- .\ChromeDownloader.ps1 -do download -jsonsave $true -xmlsave $true -prefix 'C:/Browsers/Chrome-%v_%p%osv_%b_%r'
+ .\ChromeDownloader.ps1 -do download -jsonsave -xmlsave -prefix 'C:/Browsers/Chrome-%v_%p%osv_%b_%r'
  Downloads the current build of Chrome x64 for Windows to a file under C:/Browsers, named to include the version of Chrome, the platform and OS version, the bit-type and release type, as well as creating both an XML and a JSON file with details about the download in the same location beside the binary.
 
 .EXAMPLE
- .\ChromeDownloader.ps1 win 64 -release beta -os 10 -rename $true
+ .\ChromeDownloader.ps1 win 64 -release beta -os 10 -rename
  Downloads the latest 64-bit beta build of Chrome for Windows 10 and inserts the bit-type in the file name
 
 .EXAMPLE
@@ -356,8 +356,8 @@ Remove-Item $xmlfile
 # SIG # Begin signature block
 # MIIrKwYJKoZIhvcNAQcCoIIrHDCCKxgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUxk60+NLCpFuQaPEdnYHL+BSy
-# epmggiQ7MIIEMjCCAxqgAwIBAgIBATANBgkqhkiG9w0BAQUFADB7MQswCQYDVQQG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUsN91YQ1Vgd5H/iBwhZFkD4kr
+# z8mggiQ7MIIEMjCCAxqgAwIBAgIBATANBgkqhkiG9w0BAQUFADB7MQswCQYDVQQG
 # EwJHQjEbMBkGA1UECAwSR3JlYXRlciBNYW5jaGVzdGVyMRAwDgYDVQQHDAdTYWxm
 # b3JkMRowGAYDVQQKDBFDb21vZG8gQ0EgTGltaXRlZDEhMB8GA1UEAwwYQUFBIENl
 # cnRpZmljYXRlIFNlcnZpY2VzMB4XDTA0MDEwMTAwMDAwMFoXDTI4MTIzMTIzNTk1
@@ -555,34 +555,34 @@ Remove-Item $xmlfile
 # IENvZGUgU2lnbmluZyBDQSBSMzYCEQDCQwm71IrzJIwoQU/zm0zEMAkGBSsOAwIa
 # BQCgeDAYBgorBgEEAYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgor
 # BgEEAYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3
-# DQEJBDEWBBSBShYhrIwPnDZPJzjtmJCIhPLEtzANBgkqhkiG9w0BAQEFAASCAgBk
-# mE8ezWmZReyBjDSkYirfWDF+bmr/fhiXSrtSZGUHx3EbK246URmoX//cbzLglFym
-# qmJY3sHIgSL8Ch8A9U3vovbnNNDb6kJ/SS7d8XsAEWX7Uf5w2ud+Y56puiGD5F8L
-# Dsca1Hw+YTQyk0j3ucVy53e7J5JM6QDPk1WJjmuGAiLv9V/aXTgCt1prtB2FamFB
-# puwAjsNcGbiTLjgwckX7twZTuXUUYY6osX4oAyVjKGV/jq+HyqQDutMY0uEj3+hY
-# uYK0vpwPjv0LQQH7/80LJ7c/teK0EmZoHSY8FEXqr5g+KXmO36uj4qgcQY/3I/U3
-# l6dh1GQMqZe/alN03rKWzHVs9K4JULIq6dGKLApUMj4SrynUhiVY10qYiw6YQRZE
-# xzunkZ6VLZ3BsCOUOgCrcFAnkx7ANbFJTJkDpakqIuZDhCikNu8eO/prS4PECZ/Z
-# 40F8Wqr93MzQavM8mgXwRPhpAFK1xn+B4Bx7xF4HCQFNSDL6R85L/AjGsjqdaMGo
-# rMpmLVmayEWdWlcPvkqmtryI2d8JVy246oCzG98egcs6TBPsxs1ApuJf0EWGDzrF
-# dJBWMya8MIQkxlMBBVOI1zEDrfTh+ytzQSvtK8MUqUFCQyqyyi1AV/6BFnXWNoo7
-# 3k2onGpXPaKfnNOVWnHn10slIFdWYoGxndNZL/OFLqGCA0wwggNIBgkqhkiG9w0B
+# DQEJBDEWBBQMz2ohuRHuwHesPIiDjra4QzhJ+jANBgkqhkiG9w0BAQEFAASCAgBX
+# QPX037RqNU+hDOm8qQI8O4EZZ3wgWrbB94memAtePVJPd391ZMOAQ1ZFZYNWXFfZ
+# Vtf6m5biEyz7TyTR8I5H7cvnMD125J/tU8Q2AX9DJJzJ8FCW1meds2Sb0r8yx2yi
+# sc32lolhGpjcHz5ilDOjDGIHX4Np7R4NiUaJxjkluHg8+6aYNOSOHKMSzPcxkoTf
+# eTKXthhnVIcoXXEfdnD8+K4VtQSj7xyzsFfGb6WI5fDZe1ICIiYJLVD9ZJ13Y/Uk
+# QEPzB2y3KkwVFpjeCk607QYOx5WaI8P9znpI41ufG2pSUreP/6Y0Z38NkLQa4kZu
+# 8tbnqESitJLfw1Y7HOr35aQKhDvp+1F+91LZx1eYB2ehXry8n3UOqS1qa8MVbWMs
+# Z7VEZMKG0xA2bCxm1vzGhIBYSL6Jtxhv8+x1w/l+buEPOGBTWIrmiXfQoafl90Pv
+# K35/MALULZZE/jUbQr2fUsVn7n4jN3XlPwE35mipT64pQsoUJR1JYPcoZGzGCEcJ
+# 7RmvW+5m84v97S6MrpKRxwI6JbsvUogaTzQa+iBf+3Dva0/ZVKp7bZbS2ISHNmUJ
+# d4qKjgW3EOVJAJrqIVyrpJAMiArqoLt994jXz/9Exil7z73Rx0koTm7vMZ3UGNoM
+# fdoNzIdTFP9vy1OfleVgDf2wJxBjlc0Xl5cCpIaF4qGCA0wwggNIBgkqhkiG9w0B
 # CQYxggM5MIIDNQIBATCBkjB9MQswCQYDVQQGEwJHQjEbMBkGA1UECBMSR3JlYXRl
 # ciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3JkMRgwFgYDVQQKEw9TZWN0aWdv
 # IExpbWl0ZWQxJTAjBgNVBAMTHFNlY3RpZ28gUlNBIFRpbWUgU3RhbXBpbmcgQ0EC
 # EQCQOX+a0ko6E/K9kV8IOKlDMA0GCWCGSAFlAwQCAgUAoHkwGAYJKoZIhvcNAQkD
-# MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMjMwNDAzMTY1MzQ2WjA/Bgkq
-# hkiG9w0BCQQxMgQwHWzfFfEpsKCzti3LLH14C4Kn/vFieh9XdLrvUV5cUhUgeeLk
-# 4vskrgNuKU6DTBYbMA0GCSqGSIb3DQEBAQUABIICAAN/R+1gEEh5tQGPro3yIV5G
-# LdIMKXRPAA4BKFDt7z8ngNTu0JC42etCalywhlImv65anXvyli3x5/9DiSjZWL8Y
-# sAgGz1/Nv1TwZSKHMhRVESY0lyITxge2yHXSHqaFkUGrfk0GRdsUq9Ef1MNqgHt/
-# AJHquLtDlAaD8sV6QjyHbyIqLShypn8903RT3O5JpdCumqosFnZNwhkw7sRTezRe
-# dqMdKQ95jAkgJ/JEhu14hoz2VsYmjegE5AFqRWZMzipkf8QLyY78+wwNF72S6/l3
-# rbugdGzmcQiRFz9VT6LqKqVrcGNnLrlFdRfmmmK4RVqn7V4xQivTTU8APUipTaCq
-# xdImjq/nEDz8hs45dT82phXGfeTHXtL7mwtaYEqw/OOlyp4B0+OLTBQubh+FfilQ
-# dG+SCvp6Ob7fbofAl3hqqbmB3+YMWxGqlQ/4/VIYLgUzDFbQHgSW8CLqwSGQ3GKH
-# y4RQaAS/Dfz5a7x3bnFi3jf1aZw2jg7vOVEGtSSyEfVx1fRTvJBfS8YHpsyKYsNN
-# UQyDJ7F9ZVe1UdXYsH/uC511jw7OPYgrbSGtUu0z/Zs7nY0INYhtnDNDsxFqOjrx
-# +3M8Nj7DcMldYRtaCt+CbxqQ/W1KSMml99R6nhgGivE1wLJtSGihmAdvE1F711qf
-# hGQA0irZ84d80n7GBvOs
+# MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMjMwNDAzMTY1ODUzWjA/Bgkq
+# hkiG9w0BCQQxMgQwcVwqQ621twdkRqot+tyRKHtX9MJqRDIDLenZ6IerB0sKc5MJ
+# 3z3Q3pqAcXvfHVaWMA0GCSqGSIb3DQEBAQUABIICAGKHLBebYuCQvy2UeVTv+X9Q
+# 8QZHoSjhfW7qV18nEOuLWfiWpevjhxOpgH0/eadzoI9HVzao4bWQsmS2RayW2HzV
+# Qs52JJJpH0+MkbtwXRzipjKBEwvCUbrdjv5OlnmioMN6lkh0TNtoZmRkNFLiaSU+
+# ztrqc3CgE/gS4QL9eOj4gUIs/6D+xF/Qg48dKAmiPuCDr9Zp0oXToaBsykjC3Q5B
+# /i8KccIIUA4x0oFJmMptBu+0LjI8xzy6OBYe0EKTPhebEJFDDLRxkAqpYoVtMvHZ
+# VM7Dif3Lew3Ljec4VQTk1uFHul43AoLb4XE7GMlv2tglOKsWlT2/JunFOVbRhXt1
+# kXSQvP1/Yq3AI4zGdRjLnY48PvtGMJKaZCt3QAcjBsL6DlMVA8XfjYi1ubf1Yjkf
+# EoXcTFQxGn+3qJ62RxDgNHHV6KL5n+gCQ46prRyNY9oj5tiTTzCQjlEMR82hJHzO
+# jw8DZoHrBfTOEgGqm1LZO+Zaln9pxfsGMB09JfSAhU+2szrltfJhSkDQ9G2MueX7
+# HhSYP7hCbbq/cCt0V3JNkPcFAfEkbRmL0hRljzhh798t/J76JAp5RT8CLm8QXTn4
+# IVmkbcRDIcyDxFRudSm0JC/HGeOB5tpKbvCFoa4b5ZjvVrUXdK7KfNNY7C7VTSoJ
+# ySGIOgU0iqqsTfJe8vR4
 # SIG # End signature block
