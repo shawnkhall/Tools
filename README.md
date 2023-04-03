@@ -19,7 +19,9 @@ Downloads the current version of Chrome for different hardware and OS
    
 ### SYNTAX
 ```
-.\ChromeDownloader.ps1 [[-platform] <String>] [[-bits] <String>] [[-release] <String>] [[-osversion] <String>] [[-disposition] <String>] [-overwrite] [-rename] [-jsonsave] [-xmlsave] [[-prefix] <String>] [<CommonParameters>]
+.\ChromeDownloader.ps1 [[-platform] <String>] [[-bits] <String>] [[-release] <String>]
+    [[-osversion] <String>] [[-disposition] <String>] [-overwrite] [-rename] [-jsonsave] [-xmlsave] [[-prefix]
+    <String>] [<CommonParameters>]
 ```
 
 
@@ -27,7 +29,7 @@ Downloads the current version of Chrome for different hardware and OS
 
 Downloads the latest 64-bit build of Chrome for Windows 10
 ```
-.\ChromeDownloader.ps1 win 64
+.\ChromeDownloader.ps1 win 64 
 ```
 
 Displays information about the latest 64-bit build of Chrome for Windows Server 2012
@@ -35,9 +37,14 @@ Displays information about the latest 64-bit build of Chrome for Windows Server 
 .\ChromeDownloader.ps1 win 64 -os 2012 -do info
 ```
 
+Downloads the current build of Chrome x64 for Windows to a file under C:/Browsers, named to include the version of Chrome, the platform and OS version, the bit-type and release type, as well as creating both an XML and a JSON file with details about the download in the same location beside the binary.
+```
+.\ChromeDownloader.ps1 -do download -jsonsave -xmlsave -prefix 'C:/Browsers/Chrome-%v_%p%osv_%b_%r'
+```
+
 Downloads the latest 64-bit beta build of Chrome for Windows 10 and inserts the bit-type in the file name
 ```
-.\ChromeDownloader.ps1 win 64 -release beta -os 10 -rename $true
+.\ChromeDownloader.ps1 win 64 -release beta -os 10 -rename
 ```
 
 Downloads the latest build of Chrome for macOS
