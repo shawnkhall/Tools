@@ -1,7 +1,7 @@
 
 <#PSScriptInfo
 
-.VERSION 1.2
+.VERSION 1.3
 
 .GUID c65575a3-2b12-461e-99b3-35dfd0e644b4
 
@@ -26,6 +26,7 @@
 .EXTERNALSCRIPTDEPENDENCIES 
 
 .RELEASENOTES
+ 1.3: Bug fixes
  1.2: Add option to assign the prefix for output and binary files, bug fixes, verbosity
  1.1: Add JSON export support
  1.0: Initial release
@@ -162,7 +163,6 @@ function cdFormatJSON([xml]$xml, [string]$jsonpath="") {
 	Write-Verbose	"  jsonpath:	$jsonpath"
 	$args	= $xml.SelectSingleNode("//response/app/updatecheck/manifest/actions/action").arguments
 	$package	= $xml.SelectSingleNode("//response/app/updatecheck/manifest/packages/package/@name").Value
-	$sha1	= $xml.SelectSingleNode("//response/app/updatecheck/manifest/packages/package/@hash").Value
 	$sha256	= $xml.SelectSingleNode("//response/app/updatecheck/manifest/packages/package/@hash_sha256").Value
 	$size	= $xml.SelectSingleNode("//response/app/updatecheck/manifest/packages/package/@size").Value
 	$url	= $xml.SelectSingleNode("//response/app/updatecheck/urls/url[last()]/@codebase").Value
@@ -171,7 +171,6 @@ function cdFormatJSON([xml]$xml, [string]$jsonpath="") {
 		'version'	= $version
 		'package'	= $package
 		'arguments'	= $args
-		'sha1'	= $sha1
 		'sha256'	= $sha256
 		'size'	= $size
 		'url'	= "$($url)$($package)"
@@ -333,7 +332,7 @@ Write-Verbose	"  file[2]:	$file"
 if($status -eq 'ok'){
 	Switch ($disposition){
 		'url'	{ echo "$url$package"; break }
-		'info'	{ echo "Version: $version" "Url: $url$package" "File: $package" "Hash: $sha256" "Size: $size" "Status: $status"; break }
+		'info'	{ echo "Version: $version" "Url: $url$package" "File: $package" "SHA256: $sha256" "Size: $size" "Status: $status"; break }
 		'xml'	{ cdFormatXML  $xmlDoc; break }
 		'json'	{ cdFormatJSON $xmlDoc; break }
 		'download'	{ 
@@ -357,8 +356,8 @@ Remove-Item $xmlfile
 # SIG # Begin signature block
 # MIIrKwYJKoZIhvcNAQcCoIIrHDCCKxgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUV5UTURcF3MzA+8cym2R0cnO2
-# qkKggiQ7MIIEMjCCAxqgAwIBAgIBATANBgkqhkiG9w0BAQUFADB7MQswCQYDVQQG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUxk60+NLCpFuQaPEdnYHL+BSy
+# epmggiQ7MIIEMjCCAxqgAwIBAgIBATANBgkqhkiG9w0BAQUFADB7MQswCQYDVQQG
 # EwJHQjEbMBkGA1UECAwSR3JlYXRlciBNYW5jaGVzdGVyMRAwDgYDVQQHDAdTYWxm
 # b3JkMRowGAYDVQQKDBFDb21vZG8gQ0EgTGltaXRlZDEhMB8GA1UEAwwYQUFBIENl
 # cnRpZmljYXRlIFNlcnZpY2VzMB4XDTA0MDEwMTAwMDAwMFoXDTI4MTIzMTIzNTk1
@@ -556,34 +555,34 @@ Remove-Item $xmlfile
 # IENvZGUgU2lnbmluZyBDQSBSMzYCEQDCQwm71IrzJIwoQU/zm0zEMAkGBSsOAwIa
 # BQCgeDAYBgorBgEEAYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgor
 # BgEEAYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3
-# DQEJBDEWBBTfD1QMiznQvZ+DRh+OOYPGjPg1kTANBgkqhkiG9w0BAQEFAASCAgA4
-# 3FKe+S9kGJuE19T+Q2Sim1gbGNpIZbcc3NyQTC1/Ouc7Wj5WbtjkyasndfiFA+EW
-# l1O8tNgXhT9Rwchh6gOZhSTB4mqDh68Kj/ajDfxgYdzJo0f7ZqLpdc0wauzGvSjC
-# hcEE9eP65BLhjjXbWLacBoBvz36+S7K+BwBSxIcJVc0ijmzoz7u1psbuq6v4B2gH
-# 0Hzt7aNEiJKLNDPsfNtTymbfYWl55Z3Vofh7XItm9KCXpa3GKPLbmbU5wtwyiGD/
-# GfGyzKq8gheJfrnYoleC6cKap6lHdb3bgANYDRYXgdcpdvcRY2OLRvBkxgLuu9zN
-# tPaxM6dkyAlyO22lQDh0w9uu22zW8B7pHQWmGe5ZMVSE3N34noglJCtPtjbfb2D0
-# fcKTvl8gfu/6dVSIVYw6Z+FAK5MP8UeAvGj1pHQ50vdgM8vb20+/48V8RSimUiCw
-# IYzB7LJncEOzDgPDjR65Rd1BEGEUzM8DeYmH4S/g5HjOEuYCRDkfGQH8fGdwZ9Sh
-# Hvzd//Dbn4djz/gnjpzJ2zIeoH9p11n7FNTqjQhhoXHQTTxfjXaVIAIJmel4e02t
-# rYsurjjHb7Tg5yzXTUp5fMN3cafcgFdbpn8XFS9dA4wClP6W5k4J/8EiD5JVs8uI
-# e+wsle53CoED2P7/gjUZ1cWdIbhMEw8CxZH2LUB2XKGCA0wwggNIBgkqhkiG9w0B
+# DQEJBDEWBBSBShYhrIwPnDZPJzjtmJCIhPLEtzANBgkqhkiG9w0BAQEFAASCAgBk
+# mE8ezWmZReyBjDSkYirfWDF+bmr/fhiXSrtSZGUHx3EbK246URmoX//cbzLglFym
+# qmJY3sHIgSL8Ch8A9U3vovbnNNDb6kJ/SS7d8XsAEWX7Uf5w2ud+Y56puiGD5F8L
+# Dsca1Hw+YTQyk0j3ucVy53e7J5JM6QDPk1WJjmuGAiLv9V/aXTgCt1prtB2FamFB
+# puwAjsNcGbiTLjgwckX7twZTuXUUYY6osX4oAyVjKGV/jq+HyqQDutMY0uEj3+hY
+# uYK0vpwPjv0LQQH7/80LJ7c/teK0EmZoHSY8FEXqr5g+KXmO36uj4qgcQY/3I/U3
+# l6dh1GQMqZe/alN03rKWzHVs9K4JULIq6dGKLApUMj4SrynUhiVY10qYiw6YQRZE
+# xzunkZ6VLZ3BsCOUOgCrcFAnkx7ANbFJTJkDpakqIuZDhCikNu8eO/prS4PECZ/Z
+# 40F8Wqr93MzQavM8mgXwRPhpAFK1xn+B4Bx7xF4HCQFNSDL6R85L/AjGsjqdaMGo
+# rMpmLVmayEWdWlcPvkqmtryI2d8JVy246oCzG98egcs6TBPsxs1ApuJf0EWGDzrF
+# dJBWMya8MIQkxlMBBVOI1zEDrfTh+ytzQSvtK8MUqUFCQyqyyi1AV/6BFnXWNoo7
+# 3k2onGpXPaKfnNOVWnHn10slIFdWYoGxndNZL/OFLqGCA0wwggNIBgkqhkiG9w0B
 # CQYxggM5MIIDNQIBATCBkjB9MQswCQYDVQQGEwJHQjEbMBkGA1UECBMSR3JlYXRl
 # ciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3JkMRgwFgYDVQQKEw9TZWN0aWdv
 # IExpbWl0ZWQxJTAjBgNVBAMTHFNlY3RpZ28gUlNBIFRpbWUgU3RhbXBpbmcgQ0EC
 # EQCQOX+a0ko6E/K9kV8IOKlDMA0GCWCGSAFlAwQCAgUAoHkwGAYJKoZIhvcNAQkD
-# MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMjMwNDAyMDg0ODA2WjA/Bgkq
-# hkiG9w0BCQQxMgQwxxjdeTxLvTpBxq2nGxWP0VdJKSdP9cRp8A0PACehFz+6yDYt
-# Yu1w+PFBUiVGfkVXMA0GCSqGSIb3DQEBAQUABIICAFVs+QeDxqHcKDGYXQkvZPGk
-# w1SBshwG58y332d8lUOH/XqA3rjSBakew57iv93jcafhpVI1drORrd5NKSzRFrYd
-# 5imtLcY3QCMq65dLTzs3DXrhtINi3myIO1SFUMLEIUrURdUAyFpPZ4fhPcB9ETwJ
-# AIaAcEtdQoS1NPP+ygP62g7tkBYhjd6yPkneAUmtHsppBawTMZFRSzWTdg5+jj4w
-# KxIXkBo3JAhI9uDyJPyAzASlqMcDazvYgHLIcKwVySsNA4hhrl79/Jw/IoloN6JN
-# 7l/j5WBwuKoB17xKhpnnznVgjm4IG1Dw7YqCIZYkKNseOATDSgSQJlMXHtTpleSb
-# WiTrfpf0w1baiD5ctzQslkor4Em0ta+bXSK+pY4a53FAD7zrwVNVdNKZIruvOB2c
-# N2gOOsAvoxTgLMHTGImh5GrHBs7dtg6Xawq5xPS3XB+I7nXefy4aWKk+i4dzPlWV
-# 4RKjK5kcy4MPVgl61TZH4nXwAgl/fxVD/f4hunorc5A2Jtq5NlF3e7O/goKRwjmo
-# SZb3ObuJcUKO88+YRy+nZkxyNVHcTg0LaBVZaZN5SfLigul//mITxZTkTQO3146b
-# zvWoGXo0kds/xh7EmRQyO0ueuVxBLYQxro7ieYr44OxYfBLhnOxCjgibTKJ8DK5/
-# qft0z/dmxTPCdsjtLkRh
+# MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMjMwNDAzMTY1MzQ2WjA/Bgkq
+# hkiG9w0BCQQxMgQwHWzfFfEpsKCzti3LLH14C4Kn/vFieh9XdLrvUV5cUhUgeeLk
+# 4vskrgNuKU6DTBYbMA0GCSqGSIb3DQEBAQUABIICAAN/R+1gEEh5tQGPro3yIV5G
+# LdIMKXRPAA4BKFDt7z8ngNTu0JC42etCalywhlImv65anXvyli3x5/9DiSjZWL8Y
+# sAgGz1/Nv1TwZSKHMhRVESY0lyITxge2yHXSHqaFkUGrfk0GRdsUq9Ef1MNqgHt/
+# AJHquLtDlAaD8sV6QjyHbyIqLShypn8903RT3O5JpdCumqosFnZNwhkw7sRTezRe
+# dqMdKQ95jAkgJ/JEhu14hoz2VsYmjegE5AFqRWZMzipkf8QLyY78+wwNF72S6/l3
+# rbugdGzmcQiRFz9VT6LqKqVrcGNnLrlFdRfmmmK4RVqn7V4xQivTTU8APUipTaCq
+# xdImjq/nEDz8hs45dT82phXGfeTHXtL7mwtaYEqw/OOlyp4B0+OLTBQubh+FfilQ
+# dG+SCvp6Ob7fbofAl3hqqbmB3+YMWxGqlQ/4/VIYLgUzDFbQHgSW8CLqwSGQ3GKH
+# y4RQaAS/Dfz5a7x3bnFi3jf1aZw2jg7vOVEGtSSyEfVx1fRTvJBfS8YHpsyKYsNN
+# UQyDJ7F9ZVe1UdXYsH/uC511jw7OPYgrbSGtUu0z/Zs7nY0INYhtnDNDsxFqOjrx
+# +3M8Nj7DcMldYRtaCt+CbxqQ/W1KSMml99R6nhgGivE1wLJtSGihmAdvE1F711qf
+# hGQA0irZ84d80n7GBvOs
 # SIG # End signature block
