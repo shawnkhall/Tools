@@ -223,7 +223,7 @@ Switch ($platform) {
 					default	{ $ap = 'x64-stable-multi-chrome'; 	break }
 				}
 				Switch ($osversion) {
-					{ @('5.1', '5.2', '6.0') -contains $_ } {
+					{ @('xp', 'vista', '2003', '2003r2', '2008', '5.2') -contains $_ } {
 						$bits	= 'x86';
 						Write-Verbose	"  Note:	64-bit support unavailable for this operating system version."
 						break
