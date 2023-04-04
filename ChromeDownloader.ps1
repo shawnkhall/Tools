@@ -26,6 +26,7 @@
 .EXTERNALSCRIPTDEPENDENCIES 
 
 .RELEASENOTES
+ 1.4: Add 32-bit support for Server 2003 (5.2) through 2008 (6.0) and 32/64-bit support for Server 2008 R2 (6.1)
  1.3: Bug fixes
  1.2: Add option to assign the prefix for output and binary files, bug fixes, verbosity
  1.1: Add JSON export support
@@ -53,7 +54,7 @@
  Specifies the release type: stable, beta, dev or canary
 
 .PARAMETER osversion
- Specifies the OS version: 6.3, 7, 8, 10, 11, 12, 13, 2012
+ Specifies the OS version: 5.2, 6.0, 6.1, 6.2, 6.3, 7, 8, 10, 11, 12, 13, 2003, 2008, 2008r2, 2012, 2012r2
 
 .PARAMETER disposition
  Specifies disposition: url, download, info, xml, json
@@ -109,7 +110,7 @@ Param(
 	[Alias("Rel")]
 	[string] $release = "stable", 
 	
-	[ValidateSet("2012", "2012r2", "6.3", "7", "7.0", "10", "10.0", "11", "11.0", "12", "12.0", "13", "13.0", IgnoreCase = $false)]
+	[ValidateSet("2003", "2003r2", "2008", "2008r2", "2012", "2012r2", "5.2", "6.0", "6.1", "6.2", "6.3", "7", "7.0", "10", "10.0", "11", "11.0", "12", "12.0", "13", "13.0", IgnoreCase = $false)]
 	[Alias("OS")]
 	[string] $osversion = "10.0", 
 	
@@ -206,8 +207,12 @@ Switch ($platform) {
 		$ext	= '.exe'
 		$appid	= '{8A69D345-D564-463C-AFF1-A69D9E530F96}'
 		Switch ($osversion) {
-			{ @('7', '7.0', '10', '10.0', '11', '11.0' ) -contains $_ } { break }
+			{ @('7', '7.0', '10', '10.0', '11', '11.0') -contains $_ } { break }
 			{ @('6.3', '8', '8.0', '8.1', '2012', '2012r2') -contains $_ } { $osversion = '6.3'; break }
+			{ @('2003', '2003r2') -contains $_ } { $osversion = '5.2'; break }
+			{ @('2008') -contains $_ } { $osversion = '6.0'; break }
+			{ @('2008r2') -contains $_ } { $osversion = '6.1'; break }
+			{ @('5.2', '6.0', '6.1', '6.2') -contains $_ } { break }
 			default	{ $osversion = '10.0'; break }
 		}
 		Switch ($bits) {
@@ -219,6 +224,14 @@ Switch ($platform) {
 					'dev'	{ $ap = 'x64-dev-multi-chrome'; 	break }
 					'canary'	{ $ap = 'x64-canary'; $appid = '{4EA16AC7-FD5A-47C3-875B-DBF4A2008C20}'; 	break }
 					default	{ $ap = 'x64-stable-multi-chrome'; 	break }
+				}
+				Switch ($osversion) {
+					{ @('5.1', '5.2', '6.0') -contains $_ } {
+						$bits	= 'x86';
+						Write-Verbose	"  Note:	64-bit support unavailable for this operating system version."
+						break
+					}
+					default	{ break }
 				}
 			}
 			{ @('x86', '32') -contains $_ } {
@@ -356,8 +369,8 @@ Remove-Item $xmlfile
 # SIG # Begin signature block
 # MIIrKwYJKoZIhvcNAQcCoIIrHDCCKxgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUsN91YQ1Vgd5H/iBwhZFkD4kr
-# z8mggiQ7MIIEMjCCAxqgAwIBAgIBATANBgkqhkiG9w0BAQUFADB7MQswCQYDVQQG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUkJXbg34yh4pf2oGXO8pCs4Go
+# R7+ggiQ7MIIEMjCCAxqgAwIBAgIBATANBgkqhkiG9w0BAQUFADB7MQswCQYDVQQG
 # EwJHQjEbMBkGA1UECAwSR3JlYXRlciBNYW5jaGVzdGVyMRAwDgYDVQQHDAdTYWxm
 # b3JkMRowGAYDVQQKDBFDb21vZG8gQ0EgTGltaXRlZDEhMB8GA1UEAwwYQUFBIENl
 # cnRpZmljYXRlIFNlcnZpY2VzMB4XDTA0MDEwMTAwMDAwMFoXDTI4MTIzMTIzNTk1
@@ -555,34 +568,34 @@ Remove-Item $xmlfile
 # IENvZGUgU2lnbmluZyBDQSBSMzYCEQDCQwm71IrzJIwoQU/zm0zEMAkGBSsOAwIa
 # BQCgeDAYBgorBgEEAYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgor
 # BgEEAYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3
-# DQEJBDEWBBQMz2ohuRHuwHesPIiDjra4QzhJ+jANBgkqhkiG9w0BAQEFAASCAgBX
-# QPX037RqNU+hDOm8qQI8O4EZZ3wgWrbB94memAtePVJPd391ZMOAQ1ZFZYNWXFfZ
-# Vtf6m5biEyz7TyTR8I5H7cvnMD125J/tU8Q2AX9DJJzJ8FCW1meds2Sb0r8yx2yi
-# sc32lolhGpjcHz5ilDOjDGIHX4Np7R4NiUaJxjkluHg8+6aYNOSOHKMSzPcxkoTf
-# eTKXthhnVIcoXXEfdnD8+K4VtQSj7xyzsFfGb6WI5fDZe1ICIiYJLVD9ZJ13Y/Uk
-# QEPzB2y3KkwVFpjeCk607QYOx5WaI8P9znpI41ufG2pSUreP/6Y0Z38NkLQa4kZu
-# 8tbnqESitJLfw1Y7HOr35aQKhDvp+1F+91LZx1eYB2ehXry8n3UOqS1qa8MVbWMs
-# Z7VEZMKG0xA2bCxm1vzGhIBYSL6Jtxhv8+x1w/l+buEPOGBTWIrmiXfQoafl90Pv
-# K35/MALULZZE/jUbQr2fUsVn7n4jN3XlPwE35mipT64pQsoUJR1JYPcoZGzGCEcJ
-# 7RmvW+5m84v97S6MrpKRxwI6JbsvUogaTzQa+iBf+3Dva0/ZVKp7bZbS2ISHNmUJ
-# d4qKjgW3EOVJAJrqIVyrpJAMiArqoLt994jXz/9Exil7z73Rx0koTm7vMZ3UGNoM
-# fdoNzIdTFP9vy1OfleVgDf2wJxBjlc0Xl5cCpIaF4qGCA0wwggNIBgkqhkiG9w0B
+# DQEJBDEWBBST5O5ekqKUu4SiYQx3XxhLZysHQjANBgkqhkiG9w0BAQEFAASCAgBk
+# FqqKqlj3Sft1tdobKfCc6Lvmh8r2DsX3ITWYLgVOxatPjFpjYzLYEWxKfTUG+1IB
+# c/SsKvSjVjQ3/ENF8gdae5nC5QANg7ahApcELC6Y31ce9xCKMotTobePhiYCznoU
+# t2mLvngqtpJDLhARvjh0/GyCfMQTJl5Mh4+942QPndzsrcB20grHq/H26ZLdzgUY
+# 1e6L5UXiDOLXLPMvisejFPKhBB14MG6Uj0z3DqTGHbCHfwPUuojLmtwalmz49RsL
+# b6oFazjEcfN9n5VkbxnfnG0qk59m7eL3PkRjEKfPKu71kITEfgIGbtHMzsp9c/oo
+# EGw1ASP2/03HlpOtmJnWbMS0IzAJLlqwbWlW4DKORsZpp0Gw4c7soENnfbBzcEtZ
+# QdLbIKy9D5suAkYqHwPbRU3z/wjOKr7N9zL7mJiGpv4amZdfzKUoEJZW5X07tetm
+# f6HYl0joJ3QvXxaEEuPZp5xb61ewTlgKk5V3cWkF3Z1Va0danpToxfr7c519GWT6
+# DWhN7TNNpc5KlC2up1Y3OJiQD4EvT+0I/DEv+4n4q42mBgfKiI8x10NUo/IYnxu2
+# S0jkMO2Zz9KxO31V1bToytAVLwB3Ka9hxQ0GLUjkHNJFLx+xiloHmNNYsQouTRUf
+# YNloiP4cGMjMQ67WbtGMV4WLybeiLJFldZNBcU3d7KGCA0wwggNIBgkqhkiG9w0B
 # CQYxggM5MIIDNQIBATCBkjB9MQswCQYDVQQGEwJHQjEbMBkGA1UECBMSR3JlYXRl
 # ciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3JkMRgwFgYDVQQKEw9TZWN0aWdv
 # IExpbWl0ZWQxJTAjBgNVBAMTHFNlY3RpZ28gUlNBIFRpbWUgU3RhbXBpbmcgQ0EC
 # EQCQOX+a0ko6E/K9kV8IOKlDMA0GCWCGSAFlAwQCAgUAoHkwGAYJKoZIhvcNAQkD
-# MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMjMwNDAzMTY1ODUzWjA/Bgkq
-# hkiG9w0BCQQxMgQwcVwqQ621twdkRqot+tyRKHtX9MJqRDIDLenZ6IerB0sKc5MJ
-# 3z3Q3pqAcXvfHVaWMA0GCSqGSIb3DQEBAQUABIICAGKHLBebYuCQvy2UeVTv+X9Q
-# 8QZHoSjhfW7qV18nEOuLWfiWpevjhxOpgH0/eadzoI9HVzao4bWQsmS2RayW2HzV
-# Qs52JJJpH0+MkbtwXRzipjKBEwvCUbrdjv5OlnmioMN6lkh0TNtoZmRkNFLiaSU+
-# ztrqc3CgE/gS4QL9eOj4gUIs/6D+xF/Qg48dKAmiPuCDr9Zp0oXToaBsykjC3Q5B
-# /i8KccIIUA4x0oFJmMptBu+0LjI8xzy6OBYe0EKTPhebEJFDDLRxkAqpYoVtMvHZ
-# VM7Dif3Lew3Ljec4VQTk1uFHul43AoLb4XE7GMlv2tglOKsWlT2/JunFOVbRhXt1
-# kXSQvP1/Yq3AI4zGdRjLnY48PvtGMJKaZCt3QAcjBsL6DlMVA8XfjYi1ubf1Yjkf
-# EoXcTFQxGn+3qJ62RxDgNHHV6KL5n+gCQ46prRyNY9oj5tiTTzCQjlEMR82hJHzO
-# jw8DZoHrBfTOEgGqm1LZO+Zaln9pxfsGMB09JfSAhU+2szrltfJhSkDQ9G2MueX7
-# HhSYP7hCbbq/cCt0V3JNkPcFAfEkbRmL0hRljzhh798t/J76JAp5RT8CLm8QXTn4
-# IVmkbcRDIcyDxFRudSm0JC/HGeOB5tpKbvCFoa4b5ZjvVrUXdK7KfNNY7C7VTSoJ
-# ySGIOgU0iqqsTfJe8vR4
+# MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMjMwNDA0MjA0OTA3WjA/Bgkq
+# hkiG9w0BCQQxMgQwck65qWCnOvEBJTwxDDmtY4Hw1XUpDvWDmLlz4m14o79uyv9N
+# kyzE5bGPd6gDESxcMA0GCSqGSIb3DQEBAQUABIICAGdjexANWVSx0RduZpjTeasu
+# gQYVTsGt+g+vC+YJDX9rzGO1LbuIa0lHKjAdsRzmm8MaLsg/y0P7pDv0pEcdQrz9
+# QC4b/hDswvyaOg6vZBWyusYQ9sUzUZ06bf/9ed4dCxICACexEBfleHwea7y0j64h
+# DHYcY+5rb4kkg9I6Jew8JUXzgrEfARGK0sWV/QaKUDYXA+Gmw3NZoH1akOE+AdYN
+# G7FHpFyEkfRgdVtGi6RsrWBsgeLiEWMUUyiQVDm1KBDbIa/ZVacZzytR2EdOmVaQ
+# /eZmY7XsBnA5+b5wyfoaFHO0Xzu6y9JPeqhhNkul1YFFsQ90f/M7zy7+swPWPUxw
+# kF9SlCZjLzjdXWw2wTJNoNyTpPTF2xhqPVVHLgYGpMfCkZ0SX4kdkKdtpMXJ3R9P
+# Xr3P/wS6NQNoeNqeA7zstUBUPxReirf2S//WodwNLOHB00HtSUYmRF4VggbgH6qv
+# p8uMPuOdFudfTr9nke+RVV5UrWveCA4/tbMFSaJM+/7ic6wVN182ioSBEOWfRFcg
+# 6LNivCwQW98H8aPX/tD5UOXEpPAkGWFUOZE2F3rRFwy8AsVcUNhrzaJg3R0iCNhL
+# nfiNTbYPbDB1gUWlX5zq4hfynPc/xtZBEuQ1M51fKvGhwQMOF6V+u2cEvEJOlXRg
+# QCm8vMEk0GpF6oFwXz0H
 # SIG # End signature block
