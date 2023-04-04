@@ -206,7 +206,7 @@ Switch ($platform) {
 	'win' {
 		$ext	= '.exe'
 		$appid	= '{8A69D345-D564-463C-AFF1-A69D9E530F96}'
-Switch ($osversion) {
+		Switch ($osversion) {
 			{ @('10', '11', '2016', '2019', '2022') -contains $_ } { break }
 			{ @('7', '8', '8.1', '2008r2', '2012', '2012r2') -contains $_ } { $osversion = '6.3'; break }
 			{ @('xp', 'vista', '2003', '2003r2', '2008') -contains $_ } { $osversion = '5.2'; break }
