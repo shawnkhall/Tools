@@ -54,7 +54,7 @@
  Specifies the release type: stable, beta, dev or canary
 
 .PARAMETER osversion
- Specifies the OS version: 5.2, 6.0, 6.1, 6.2, 6.3, 7, 8, 10, 11, 12, 13, 2003, 2008, 2008r2, 2012, 2012r2
+ Specifies the OS version: xp, vista, 7, 8, 8.1, 10, 11, 12, 13, 2003, 2003r2, 2008, 2008r2, 2012, 2012r2, 2016, 2019, 2022
 
 .PARAMETER disposition
  Specifies disposition: url, download, info, xml, json
@@ -110,7 +110,7 @@ Param(
 	[Alias("Rel")]
 	[string] $release = "stable", 
 	
-	[ValidateSet("2003", "2003r2", "2008", "2008r2", "2012", "2012r2", "5.2", "6.0", "6.1", "6.2", "6.3", "7", "7.0", "10", "10.0", "11", "11.0", "12", "12.0", "13", "13.0", IgnoreCase = $false)]
+	[ValidateSet("2003", "2003r2", "2008", "2008r2", "2012", "2012r2", "2016", "2019", "2022", "xp", "vista", "7", "8", "8.1", "10", "10.0", "11", "11.0", "12", "12.0", "13", "13.0", IgnoreCase = $false)]
 	[Alias("OS")]
 	[string] $osversion = "10.0", 
 	
@@ -206,13 +206,10 @@ Switch ($platform) {
 	'win' {
 		$ext	= '.exe'
 		$appid	= '{8A69D345-D564-463C-AFF1-A69D9E530F96}'
-		Switch ($osversion) {
-			{ @('7', '7.0', '10', '10.0', '11', '11.0') -contains $_ } { break }
-			{ @('6.3', '8', '8.0', '8.1', '2012', '2012r2') -contains $_ } { $osversion = '6.3'; break }
-			{ @('2003', '2003r2') -contains $_ } { $osversion = '5.2'; break }
-			{ @('2008') -contains $_ } { $osversion = '6.0'; break }
-			{ @('2008r2') -contains $_ } { $osversion = '6.1'; break }
-			{ @('5.2', '6.0', '6.1', '6.2') -contains $_ } { break }
+Switch ($osversion) {
+			{ @('10', '11', '2016', '2019', '2022') -contains $_ } { break }
+			{ @('7', '8', '8.1', '2008r2', '2012', '2012r2') -contains $_ } { $osversion = '6.3'; break }
+			{ @('xp', 'vista', '2003', '2003r2', '2008') -contains $_ } { $osversion = '5.2'; break }
 			default	{ $osversion = '10.0'; break }
 		}
 		Switch ($bits) {
