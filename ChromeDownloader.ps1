@@ -1,7 +1,7 @@
 
 <#PSScriptInfo
 
-.VERSION 1.3
+.VERSION 1.5
 
 .GUID c65575a3-2b12-461e-99b3-35dfd0e644b4
 
@@ -26,6 +26,7 @@
 .EXTERNALSCRIPTDEPENDENCIES 
 
 .RELEASENOTES
+ 1.5: 
  1.4: Add 32-bit support for Server 2003 (5.2) through 2008 (6.0) and 32/64-bit support for Server 2008 R2 (6.1)
  1.3: Bug fixes
  1.2: Add option to assign the prefix for output and binary files, bug fixes, verbosity
@@ -54,7 +55,7 @@
  Specifies the release type: stable, beta, dev or canary
 
 .PARAMETER osversion
- Specifies the OS version: 5.2, 6.0, 6.1, 6.2, 6.3, 7, 8, 10, 11, 12, 13, 2003, 2008, 2008r2, 2012, 2012r2
+ Specifies the OS version: 11, 10, 8.1, 8, 7, vista, xp (Windows); 2022, 2019, 2016, 2012r2, 2012, 2008r2, 2008, 2003r2, 2003 (Windows Server); 13, 12, 11, 10 (macOS)
 
 .PARAMETER disposition
  Specifies disposition: url, download, info, xml, json
@@ -110,7 +111,7 @@ Param(
 	[Alias("Rel")]
 	[string] $release = "stable", 
 	
-	[ValidateSet("2003", "2003r2", "2008", "2008r2", "2012", "2012r2", "5.2", "6.0", "6.1", "6.2", "6.3", "7", "7.0", "10", "10.0", "11", "11.0", "12", "12.0", "13", "13.0", IgnoreCase = $false)]
+	[ValidateSet("5.2", "6.0", "6.1", "6.2", "6.3", "10.0", "11", "10", "8.1", "8", "7", "vista", "xp", "2022", "2019", "2016", "2012r2", "2012", "2008r2", "2008", "2003r2", "2003", "12", "12.0", "13", "13.0", IgnoreCase = $false)]
 	[Alias("OS")]
 	[string] $osversion = "10.0", 
 	
@@ -207,12 +208,12 @@ Switch ($platform) {
 		$ext	= '.exe'
 		$appid	= '{8A69D345-D564-463C-AFF1-A69D9E530F96}'
 		Switch ($osversion) {
-			{ @('7', '7.0', '10', '10.0', '11', '11.0') -contains $_ } { break }
-			{ @('6.3', '8', '8.0', '8.1', '2012', '2012r2') -contains $_ } { $osversion = '6.3'; break }
-			{ @('2003', '2003r2') -contains $_ } { $osversion = '5.2'; break }
-			{ @('2008') -contains $_ } { $osversion = '6.0'; break }
-			{ @('2008r2') -contains $_ } { $osversion = '6.1'; break }
-			{ @('5.2', '6.0', '6.1', '6.2') -contains $_ } { break }
+			{ @('10', '11', '2016', '2019', '2022') -contains $_ } { break }
+			{ @('8.1', '2012r2') -contains $_ } { $osversion = '6.3'; break }
+			{ @('8', '2012') -contains $_ } { $osversion = '6.2'; break }
+			{ @('7', '2008r2') -contains $_ } { $osversion = '6.1'; break }
+			{ @('vista', '2008') -contains $_ } { $osversion = '6.0'; break }
+			{ @('xp', '2003', '2003r2') -contains $_ } { $osversion = '5.2'; break }
 			default	{ $osversion = '10.0'; break }
 		}
 		Switch ($bits) {
@@ -226,7 +227,7 @@ Switch ($platform) {
 					default	{ $ap = 'x64-stable-multi-chrome'; 	break }
 				}
 				Switch ($osversion) {
-					{ @('5.1', '5.2', '6.0') -contains $_ } {
+					{ @('5.2', '6.0') -contains $_ } {
 						$bits	= 'x86';
 						Write-Verbose	"  Note:	64-bit support unavailable for this operating system version."
 						break
