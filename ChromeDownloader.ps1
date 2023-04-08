@@ -84,6 +84,10 @@
 
 .EXAMPLE
  .\ChromeDownloader.ps1 win 64 
+ Display the latest 64-bit build of Chrome for Windows 11
+
+.EXAMPLE
+ .\ChromeDownloader.ps1 win 64 -download
  Download the latest 64-bit build of Chrome for Windows 11
 
 .EXAMPLE
@@ -96,7 +100,7 @@
 
 .EXAMPLE
  .\ChromeDownloader.ps1 mac
- Download the latest build of Chrome for macOS 11
+ Display the latest build of Chrome for macOS 11
 
 .EXAMPLE
  .\ChromeDownloader.ps1 -download -jsonsave -xmlsave -prefix 'C:/Browsers/Chrome-%v_%p%osv_%b_%r'
