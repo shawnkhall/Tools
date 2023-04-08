@@ -13,11 +13,11 @@ Inspired by [COI](https://github.com/lyonna/ChromeOfflineInstallerDownloadAPI/) 
 
 
 ### DESCRIPTION
-```
+
 Obtains information about the current version of Chrome for different hardware and operating systems, optionally downloading, exporting as JSON, XML or displaying information.
 
-Note: While you can use any value for the OS version, unsupported operating systems do not receive security updates and the versions available for download from Google are not secure and are not supported. Likewise, not all operating systems support both a 32-bit and 64-bit version. 
-```
+**Note:** While you can use any value for the OS version, unsupported operating systems do not receive security updates and the versions available for download from Google are not secure and are not supported. Likewise, not all operating systems support both a 32-bit and 64-bit version. 
+
    
 ### SYNTAX
 ```
