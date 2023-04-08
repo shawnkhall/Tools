@@ -1,7 +1,7 @@
 
 <#PSScriptInfo
 
-.VERSION 1.3
+.VERSION 2.0
 
 .GUID c65575a3-2b12-461e-99b3-35dfd0e644b4
 
@@ -11,7 +11,7 @@
 
 .COPYRIGHT Unlicense
 
-.TAGS chrome download url stable
+.TAGS chrome version download url stable
 
 .LICENSEURI https://unlicense.org/
 
@@ -26,6 +26,7 @@
 .EXTERNALSCRIPTDEPENDENCIES 
 
 .RELEASENOTES
+ 2.0: Removes OS Version validation, removes bit-massaging for unsupported operating systems, improves parsing for named OS versions, adds pipeline support (now default), changes disposition behavior, expands examples and parameters. This version also changes default OS version to 11 since that number is safely cross-platform.
  1.4: Add 32-bit support for Server 2003 (5.2) through 2008 (6.0) and 32/64-bit support for Server 2008 R2 (6.1)
  1.3: Bug fixes
  1.2: Add option to assign the prefix for output and binary files, bug fixes, verbosity
@@ -38,14 +39,18 @@
 
 <# 
 
-.DESCRIPTION 
- Downloads the current version of Chrome for different hardware and OS
-
 .SYNOPSIS
- ChromeDownloader: Downloads the current version of Chrome for different hardware and OS
+ ChromeDownloader: Obtains information about the current version of Chrome for different hardware and operating system
+
+.DESCRIPTION 
+ Obtains information about the current version of Chrome for different hardware and operating system, optionally downloading, exporting as JSON, XML or displaying information.
+ Note: While you can use any value for the OS version, unsupported operating systems do not receive security updates and the versions available for download from Google are not secure and are not supported. Likewise, not all operating systems support both a 32-bit and 64-bit version. 
 
 .PARAMETER platform
  Specifies the operating system: win or mac
+
+.PARAMETER osversion
+ Specifies the OS version: 5.2, 6.0, 6.1, 6.2, 6.3, 7, 8, 10, 11, 12, 13, 2003, 2008, 2008r2, 2012, 2012r2, 2016, 2019, 2022, 21H1, ...
 
 .PARAMETER bits
  Specifies the bit-type: x64 or x86
@@ -53,14 +58,14 @@
 .PARAMETER release
  Specifies the release type: stable, beta, dev or canary
 
-.PARAMETER osversion
- Specifies the OS version: 5.2, 6.0, 6.1, 6.2, 6.3, 7, 8, 10, 11, 12, 13, 2003, 2008, 2008r2, 2012, 2012r2
-
 .PARAMETER disposition
- Specifies disposition: url, download, info, xml, json
+ Specifies disposition: pipeline, url, info, status
+
+.PARAMETER download
+ Determines if the file should be downloaded
 
 .PARAMETER overwrite
- When disposition is download, determines if an existing file should be overwritten
+ Determines if an existing file should be overwritten
 
 .PARAMETER rename
  When disposition is download, inserts bit-type into downloaded filename. This option has no effect when -prefix is in use.
@@ -74,71 +79,89 @@
 .PARAMETER prefix
  Specify a custom naming pattern. The following strings will be replaced with their values: %platform/%p, %bits/%b, %osversion/%osv, %release/%r, %version/%v
 
+.INPUTS
+ You can pass named values to this script from the pipeline.
+
 .EXAMPLE
  .\ChromeDownloader.ps1 win 64 
- Downloads the latest 64-bit build of Chrome for Windows 10
+ Download the latest 64-bit build of Chrome for Windows 11
 
 .EXAMPLE
- .\ChromeDownloader.ps1 win 64 -os 2012 -do info
- Displays information about the latest 64-bit build of Chrome for Windows Server 2012
+ .\ChromeDownloader.ps1 win -os 2012 -b 64 -do info
+ Display information about the latest 64-bit build of Chrome for Windows Server 2012
 
 .EXAMPLE
- .\ChromeDownloader.ps1 -do download -jsonsave -xmlsave -prefix 'C:/Browsers/Chrome-%v_%p%osv_%b_%r'
- Downloads the current build of Chrome x64 for Windows to a file under C:/Browsers, named to include the version of Chrome, the platform and OS version, the bit-type and release type, as well as creating both an XML and a JSON file with details about the download in the same location beside the binary.
-
-.EXAMPLE
- .\ChromeDownloader.ps1 win 64 -release beta -os 10 -rename
- Downloads the latest 64-bit beta build of Chrome for Windows 10 and inserts the bit-type in the file name
+ .\ChromeDownloader.ps1 win 10 64 -download -release beta -rename
+ Download the latest 64-bit beta build of Chrome for Windows 10 and inserts the bit-type in the file name
 
 .EXAMPLE
  .\ChromeDownloader.ps1 mac
- Downloads the latest build of Chrome for macOS
+ Download the latest build of Chrome for macOS 11
+
+.EXAMPLE
+ .\ChromeDownloader.ps1 -download -jsonsave -xmlsave -prefix 'C:/Browsers/Chrome-%v_%p%osv_%b_%r'
+ Download the current build of Chrome x64 for Windows 11 to a file under C:/Browsers, named to include the version of Chrome, the platform and OS version, the bit-type and release type, as well as creating both an XML and a JSON file with details about the download beside the binary, and returns details via the pipeline.
+
+.EXAMPLE
+ $commonParams = @{ platform = 'win'; bits = 64; do = 'pipeline' };  '2008r2','2012','10' | ForEach-Object {.\ChromeDownloader.ps1  @commonParams -osversion $_} | Select platform,osversion,version,url | Format-Table
+ Display information about the latest 64-bit releases of Chrome for Windows 2008r2, 2012 and 10, formatting the results in a table.
 
 #>
 
-
 Param(
 	[ValidateSet("win", "mac", IgnoreCase = $false)]
+	[Parameter(ValueFromPipelineByPropertyName=$true, position=0)]
 	[Alias("P")]
 	[string] $platform = "win", 
 	
+	[Parameter(ValueFromPipelineByPropertyName=$true, position=1)]
+	[Alias("OS")]
+	[string] $osversion = "11.0", 
+	
 	[ValidateSet("x64", "64", "x86", "32", IgnoreCase = $false)]
+	[Parameter(ValueFromPipelineByPropertyName=$true, position=2)]
 	[Alias("B")]
 	[string] $bits = "x64", 
 	
+	[ValidateSet("url", "info", "status", "pipeline", IgnoreCase = $false)]
+	[Parameter(ValueFromPipelineByPropertyName=$true, position=3)]
+	[Alias("Do")]
+	[string] $disposition = "pipeline",
+	
 	[ValidateSet("stable", "beta", "dev", "canary", IgnoreCase = $false)]
+	[Parameter(ValueFromPipelineByPropertyName=$true)]
 	[Alias("Rel")]
 	[string] $release = "stable", 
 	
-	[ValidateSet("2003", "2003r2", "2008", "2008r2", "2012", "2012r2", "5.2", "6.0", "6.1", "6.2", "6.3", "7", "7.0", "10", "10.0", "11", "11.0", "12", "12.0", "13", "13.0", IgnoreCase = $false)]
-	[Alias("OS")]
-	[string] $osversion = "10.0", 
+	[Parameter(ValueFromPipelineByPropertyName=$true)]
+	[Alias("down")]
+	[switch] $download = $false,
 	
-	[ValidateSet("url", "download", "info", "xml", "json", IgnoreCase = $false)]
-	[Alias("Do")]
-	[string] $disposition = "download",
-	
+	[Parameter(ValueFromPipelineByPropertyName=$true)]
 	[Alias("o", "clobber")]
 	[switch] $overwrite = $false,
 	
+	[Parameter(ValueFromPipelineByPropertyName=$true)]
 	[Alias("Ren")]
 	[switch] $rename = $false, 
 	
+	[Parameter(ValueFromPipelineByPropertyName=$true)]
 	[Alias("JS")]
 	[switch] $jsonsave = $false, 
 	
+	[Parameter(ValueFromPipelineByPropertyName=$true)]
 	[Alias("XS")]
 	[switch] $xmlsave = $false, 
 	
+	[Parameter(ValueFromPipelineByPropertyName=$true)]
 	[Alias("Pre")]
 	[string] $prefix = ""
 )
 
 
-function cdFormatXML([xml]$xml, [string]$logpath="", [boolean]$omitprolog=$true) {
+
+function cdFormatXML([string]$xmlpath, [switch]$omitprolog) {
 	Write-Verbose	"cdFormatXML"
-	Write-Verbose	"  logpath:	$logpath"
-	Write-Verbose	"  omitprolog:	$omitprolog"
 	$sb	= New-Object System.Text.StringBuilder
 	$sw	= New-Object System.IO.StringWriter($sb)
 	$encoding	= [System.Text.Encoding]::UTF8
@@ -150,34 +173,18 @@ function cdFormatXML([xml]$xml, [string]$logpath="", [boolean]$omitprolog=$true)
 	$xmlsettings.NewLineOnAttributes	= $false
 	$wr	= [System.XML.XmlWriter]::Create($sw, $xmlsettings)
 	$wr.Flush()
-	$xml.Save($wr)
-	if($logpath){
-		$sb.ToString() | Set-Content -Path ($logpath -replace "'", "")
+	($chromeDownload|ConvertTo-Xml -NoTypeInformation).Save($wr)
+	if($xmlpath){
+		$sb.ToString() | Set-Content -Path ($xmlpath -replace "'", "")
 	}else{
 		return $sb.ToString()
 	}
 }
 
 
-function cdFormatJSON([xml]$xml, [string]$jsonpath="") {
+function cdFormatJSON([string]$jsonpath) {
 	Write-Verbose	"cdFormatJSON"
-	Write-Verbose	"  jsonpath:	$jsonpath"
-	$args	= $xml.SelectSingleNode("//response/app/updatecheck/manifest/actions/action").arguments
-	$package	= $xml.SelectSingleNode("//response/app/updatecheck/manifest/packages/package/@name").Value
-	$sha256	= $xml.SelectSingleNode("//response/app/updatecheck/manifest/packages/package/@hash_sha256").Value
-	$size	= $xml.SelectSingleNode("//response/app/updatecheck/manifest/packages/package/@size").Value
-	$url	= $xml.SelectSingleNode("//response/app/updatecheck/urls/url[last()]/@codebase").Value
-	$version	= $xml.SelectSingleNode("//response/app/updatecheck/manifest/@version").Value
-	$props	= [ordered]@{
-		'version'	= $version
-		'package'	= $package
-		'arguments'	= $args
-		'sha256'	= $sha256
-		'size'	= $size
-		'url'	= "$($url)$($package)"
-	}
-	$array	= New-Object -Type PSCustomObject -Property $props
-	$json	= ($array | ConvertTo-Json)
+	$json	= ($chromeDownload | ConvertTo-Json)
 	if($jsonpath){
 		$json | Set-Content -Path ($jsonpath -replace "'", "")
 	}else{
@@ -195,6 +202,7 @@ Write-Verbose	"  bits:	$bits"
 Write-Verbose	"  release:	$release"
 Write-Verbose	"  osversion:	$osversion"
 Write-Verbose	"  disposition:	$disposition"
+Write-Verbose	"  download:	$download"
 Write-Verbose	"  overwrite:	$overwrite"
 Write-Verbose	"  rename:	$rename"
 Write-Verbose	"  jsonsave:	$jsonsave"
@@ -207,13 +215,17 @@ Switch ($platform) {
 		$ext	= '.exe'
 		$appid	= '{8A69D345-D564-463C-AFF1-A69D9E530F96}'
 		Switch ($osversion) {
-			{ @('7', '7.0', '10', '10.0', '11', '11.0') -contains $_ } { break }
-			{ @('6.3', '8', '8.0', '8.1', '2012', '2012r2') -contains $_ } { $osversion = '6.3'; break }
-			{ @('2003', '2003r2') -contains $_ } { $osversion = '5.2'; break }
-			{ @('2008') -contains $_ } { $osversion = '6.0'; break }
-			{ @('2008r2') -contains $_ } { $osversion = '6.1'; break }
-			{ @('5.2', '6.0', '6.1', '6.2') -contains $_ } { break }
-			default	{ $osversion = '10.0'; break }
+			{ @('21H2', '2022', '22H2') -contains $_ } 	{ $osversion = '11.0'; break }
+			{ @('1507', '1511', '1607', '1703', '1709', 	
+			    '1803', '1809', '1903', '1909', '19H1', 	
+			    '19H2', '2004', '2009', '2016', '2019', 	
+			    '20H1', '20H2', '21H1') -contains $_ } 	{ $osversion = '10.0'; break }
+			{ @('8.1', '2012r2') -contains $_ } 	{ $osversion = '6.3'; break }
+			{ @('8', '8.0', '2012') -contains $_ } 	{ $osversion = '6.2'; break }
+			{ @('7', '7.0', '2008r2') -contains $_ } 	{ $osversion = '6.1'; break }
+			{ @('vista', '2008') -contains $_ } 	{ $osversion = '6.0'; break }
+			{ @('xp', '2003', '2003r2') -contains $_ } 	{ $osversion = '5.2'; break }
+			default	{ break }
 		}
 		Switch ($bits) {
 			{ @('x64', '64') -contains $_ } {
@@ -224,14 +236,6 @@ Switch ($platform) {
 					'dev'	{ $ap = 'x64-dev-multi-chrome'; 	break }
 					'canary'	{ $ap = 'x64-canary'; $appid = '{4EA16AC7-FD5A-47C3-875B-DBF4A2008C20}'; 	break }
 					default	{ $ap = 'x64-stable-multi-chrome'; 	break }
-				}
-				Switch ($osversion) {
-					{ @('5.1', '5.2', '6.0') -contains $_ } {
-						$bits	= 'x86';
-						Write-Verbose	"  Note:	64-bit support unavailable for this operating system version."
-						break
-					}
-					default	{ break }
 				}
 			}
 			{ @('x86', '32') -contains $_ } {
@@ -255,9 +259,8 @@ Switch ($platform) {
 		$bits	= 'x64'
 		Switch ($osversion) {
 			{ @('10', '10.0') -contains $_ } { $osversion = "11.0"; break }
-			{ @('11.0', '12.0', '13.0') -contains $_ } { break }
 			{ @('11', '12', '13') -contains $_ } { $osversion = "$osversion.0"; break }
-			default	{ $osversion = '13.0'; break }
+			default	{ break }
 		}
 		Switch ($release) {
 			'stable'	{ $ap = ''; 	$appid = 'com.google.Chrome'; 	break }
@@ -278,6 +281,7 @@ Switch ($platform) {
 }
 Write-Verbose	"  ap:	$ap"
 Write-Verbose	"  appid:	$appid"
+
 
 # generate the initial request
 Write-Verbose	""
@@ -320,6 +324,7 @@ if($rename){
 }
 Write-Verbose	"  file[1]:	$file"
 
+
 # format prefix
 if($prefix){
 	$prefix	= $prefix -replace "%osversion", "$osversion"
@@ -341,27 +346,52 @@ if($prefix){
 Write-Verbose	"  file[2]:	$file"
 
 
+# build psobject
+$chromeDownload	= New-Object PSObject -Property @{
+	Status	= $status
+	Version	= $version
+	Url	= "$url$package"
+	File	= $package
+	Sha256	= $sha256
+	Size	= $size
+	Codebase	= $url
+	Ext	= $ext
+	Platform	= $platform
+	Bits	= $bits
+	Release	= $release
+	OsVersion	= $osversion
+	Disposition	= $disposition
+	Download	= $download
+	Overwrite	= $overwrite
+	Rename	= $rename
+	JsonSave	= $jsonsave
+	XmlSave	= $xmlsave
+	Prefix	= $prefix
+	Ap	= $ap
+	AppId	= $appid
+	Timestamp	= $((Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmss'))
+}
+
+
 # generate output
-if($status -eq 'ok'){
-	Switch ($disposition){
-		'url'	{ echo "$url$package"; break }
-		'info'	{ echo "Version: $version" "Url: $url$package" "File: $package" "SHA256: $sha256" "Size: $size" "Status: $status"; break }
-		'xml'	{ cdFormatXML  $xmlDoc; break }
-		'json'	{ cdFormatJSON $xmlDoc; break }
-		'download'	{ 
-				if ((!(Test-Path "$file$ext")) -or ((Test-Path "$file$ext") -and $overwrite)) {
-					Invoke-WebRequest -Uri "$url$package" -OutFile "$file$ext"
-				} else {
-					"File '$file$ext' exists."
-				}
-				break
-			}
-		default	{ echo "$url$package" }
+if($status -ne 'ok'){
+	Write-Warning "Error: $platform $osversion $bits $release"
+}
+if($jsonsave){ cdFormatJSON ("$file.json") }
+if($xmlsave){  cdFormatXML  ("$file.xml") }
+if($download){
+	if ((!(Test-Path "$file$ext")) -or ((Test-Path "$file$ext") -and $overwrite)) {
+		Invoke-WebRequest -Uri "$url$package" -OutFile "$file$ext"
+	} else {
+		Write-Warning "File '$file$ext' exists."
 	}
-	if($jsonsave){ cdFormatJSON $xmlDoc ("$file.json") }
-	if($xmlsave){  cdFormatXML  $xmlDoc ("$file.xml") }
-}else{
-	'Error.'
+}
+Switch ($disposition){
+	'url'	{ echo "$url$package"; break }
+	'info'	{ echo "Version: $version" "Url: $url$package" "File: $package" "SHA256: $sha256" "Size: $size" "Status: $status"; break }
+	'status'	{ echo $status; break }
+	'pipeline'	{ $chromeDownload; break; }
+	default	{ $chromeDownload; break; }
 }
 Remove-Item $xmlfile
 
@@ -369,8 +399,8 @@ Remove-Item $xmlfile
 # SIG # Begin signature block
 # MIIrKwYJKoZIhvcNAQcCoIIrHDCCKxgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUkJXbg34yh4pf2oGXO8pCs4Go
-# R7+ggiQ7MIIEMjCCAxqgAwIBAgIBATANBgkqhkiG9w0BAQUFADB7MQswCQYDVQQG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUqzA0wE50Ff5iif5i0dgwCR7n
+# 0ZGggiQ7MIIEMjCCAxqgAwIBAgIBATANBgkqhkiG9w0BAQUFADB7MQswCQYDVQQG
 # EwJHQjEbMBkGA1UECAwSR3JlYXRlciBNYW5jaGVzdGVyMRAwDgYDVQQHDAdTYWxm
 # b3JkMRowGAYDVQQKDBFDb21vZG8gQ0EgTGltaXRlZDEhMB8GA1UEAwwYQUFBIENl
 # cnRpZmljYXRlIFNlcnZpY2VzMB4XDTA0MDEwMTAwMDAwMFoXDTI4MTIzMTIzNTk1
@@ -568,34 +598,34 @@ Remove-Item $xmlfile
 # IENvZGUgU2lnbmluZyBDQSBSMzYCEQDCQwm71IrzJIwoQU/zm0zEMAkGBSsOAwIa
 # BQCgeDAYBgorBgEEAYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgor
 # BgEEAYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3
-# DQEJBDEWBBST5O5ekqKUu4SiYQx3XxhLZysHQjANBgkqhkiG9w0BAQEFAASCAgBk
-# FqqKqlj3Sft1tdobKfCc6Lvmh8r2DsX3ITWYLgVOxatPjFpjYzLYEWxKfTUG+1IB
-# c/SsKvSjVjQ3/ENF8gdae5nC5QANg7ahApcELC6Y31ce9xCKMotTobePhiYCznoU
-# t2mLvngqtpJDLhARvjh0/GyCfMQTJl5Mh4+942QPndzsrcB20grHq/H26ZLdzgUY
-# 1e6L5UXiDOLXLPMvisejFPKhBB14MG6Uj0z3DqTGHbCHfwPUuojLmtwalmz49RsL
-# b6oFazjEcfN9n5VkbxnfnG0qk59m7eL3PkRjEKfPKu71kITEfgIGbtHMzsp9c/oo
-# EGw1ASP2/03HlpOtmJnWbMS0IzAJLlqwbWlW4DKORsZpp0Gw4c7soENnfbBzcEtZ
-# QdLbIKy9D5suAkYqHwPbRU3z/wjOKr7N9zL7mJiGpv4amZdfzKUoEJZW5X07tetm
-# f6HYl0joJ3QvXxaEEuPZp5xb61ewTlgKk5V3cWkF3Z1Va0danpToxfr7c519GWT6
-# DWhN7TNNpc5KlC2up1Y3OJiQD4EvT+0I/DEv+4n4q42mBgfKiI8x10NUo/IYnxu2
-# S0jkMO2Zz9KxO31V1bToytAVLwB3Ka9hxQ0GLUjkHNJFLx+xiloHmNNYsQouTRUf
-# YNloiP4cGMjMQ67WbtGMV4WLybeiLJFldZNBcU3d7KGCA0wwggNIBgkqhkiG9w0B
+# DQEJBDEWBBSBnKQ0xBQwp2E5KeyPMb1Rh5B4WzANBgkqhkiG9w0BAQEFAASCAgBA
+# aV9X/kWGeSTUcghp6Z7C+jLTVWuqRRaEFSj1UhN9SRZy161wLj2FqTezb/eNx3rw
+# oPqNyO6PLxTxRhKWp+n45tuGTlbZ7yvBKL668rv6Z3y1I9gVKEubOGWetSAvnZo/
+# 9xrH4VkdJW8wnFfJ0WhqnO9QpA7/I2h/hefFE2Ni8ScIOqgioeHmLBYcdO5wmVya
+# mFlv+0NpcIxQC6cgTCd+Q1T7yr1YToyS1Aecsw1PcSjYyWZMbb9vmUoDtJQLXa4Z
+# sFekeKHCXV707aHp5ce9ae8dJk5gZo5H4GsG3+4PqnaOSu2i8Jw/ceN3x2YgtvwT
+# BwTZuMCoZmIxR1oOFhgIjCDPvur4TIxh6fdQY6yYgwMTR6VKy33YINJgJPKb387v
+# mjQBmvjjvayq5/1YjJHFCburxZnNMLwm4Tt4+a4oLUaZY3/VNwYD/lpAAJodB/5I
+# ezFK5dwmsHYpaBR0mt4EMkuW0A9r2JVgmFt9ogxe8vUCL4CqGjKJXD68TcQGlgkL
+# MZ6HO5GnIWGIOquDnKqFhqZeNMIPAFVDAtYjNkDP6iaa3zoRy8JjXQh9xz1yThLU
+# tRTDjRSNThTiEZQ2XNNHz80ar4IIr/vquB8CwVlxRxVYzkYqjxv+eOIzLNo4RXo2
+# 6tDh88UdmOzuSxqIbw6nQHwhwU3eNwaIELWAoAFXIqGCA0wwggNIBgkqhkiG9w0B
 # CQYxggM5MIIDNQIBATCBkjB9MQswCQYDVQQGEwJHQjEbMBkGA1UECBMSR3JlYXRl
 # ciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3JkMRgwFgYDVQQKEw9TZWN0aWdv
 # IExpbWl0ZWQxJTAjBgNVBAMTHFNlY3RpZ28gUlNBIFRpbWUgU3RhbXBpbmcgQ0EC
 # EQCQOX+a0ko6E/K9kV8IOKlDMA0GCWCGSAFlAwQCAgUAoHkwGAYJKoZIhvcNAQkD
-# MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMjMwNDA0MjA0OTA3WjA/Bgkq
-# hkiG9w0BCQQxMgQwck65qWCnOvEBJTwxDDmtY4Hw1XUpDvWDmLlz4m14o79uyv9N
-# kyzE5bGPd6gDESxcMA0GCSqGSIb3DQEBAQUABIICAGdjexANWVSx0RduZpjTeasu
-# gQYVTsGt+g+vC+YJDX9rzGO1LbuIa0lHKjAdsRzmm8MaLsg/y0P7pDv0pEcdQrz9
-# QC4b/hDswvyaOg6vZBWyusYQ9sUzUZ06bf/9ed4dCxICACexEBfleHwea7y0j64h
-# DHYcY+5rb4kkg9I6Jew8JUXzgrEfARGK0sWV/QaKUDYXA+Gmw3NZoH1akOE+AdYN
-# G7FHpFyEkfRgdVtGi6RsrWBsgeLiEWMUUyiQVDm1KBDbIa/ZVacZzytR2EdOmVaQ
-# /eZmY7XsBnA5+b5wyfoaFHO0Xzu6y9JPeqhhNkul1YFFsQ90f/M7zy7+swPWPUxw
-# kF9SlCZjLzjdXWw2wTJNoNyTpPTF2xhqPVVHLgYGpMfCkZ0SX4kdkKdtpMXJ3R9P
-# Xr3P/wS6NQNoeNqeA7zstUBUPxReirf2S//WodwNLOHB00HtSUYmRF4VggbgH6qv
-# p8uMPuOdFudfTr9nke+RVV5UrWveCA4/tbMFSaJM+/7ic6wVN182ioSBEOWfRFcg
-# 6LNivCwQW98H8aPX/tD5UOXEpPAkGWFUOZE2F3rRFwy8AsVcUNhrzaJg3R0iCNhL
-# nfiNTbYPbDB1gUWlX5zq4hfynPc/xtZBEuQ1M51fKvGhwQMOF6V+u2cEvEJOlXRg
-# QCm8vMEk0GpF6oFwXz0H
+# MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMjMwNDA4MTAwOTI5WjA/Bgkq
+# hkiG9w0BCQQxMgQwQCA5RJTpdfUTMYPW/reZtEwgKK3UqedJRe5Hm3IP6ftRblTj
+# IH/tsZ1b53K+gErnMA0GCSqGSIb3DQEBAQUABIICAIva3MqIfB9CSrZl0fzrWPJ8
+# Q9yJ66x3bbaypSQT8Gk5iaSVILBNIAVEKaZmGtr3nHnoyv4jRGPVK+B9/0p5DBAL
+# qmLOc9FH8i1VKEXP2lefURFqvY+wUYBftl0CIp6Cv0NHZ/CD3brF4WJx+17j0XuE
+# A0imRiOjk9Xb+qM3xW3N1EzO8nwwe74GvmSS3ziaONDcg5PkIJeK4BnHr6kjthY4
+# MVq1K0Uor0ESh0GHy9MoJtyeCxsVkbwVSESjTf5ij5j4CDOzBXXzR6MAmNcDe6Xn
+# 9JBdEyJ8xGaQk89OJY+3e7VOT+qNa6CmUj/3GS47iIabRFga+nT2YApRIxi2q+SJ
+# ZGd5eBspr9xkCvOBRh3yiarRC2OfA6li/AMoaHBNUS0BOgyY2++N/jgtraPO2XDk
+# V9mywAz3+Jzw9I3/pc3guou0jhT7fBv36Bky/OOQXfbXsVjIvoTvBvQ4W2xOimoe
+# PlXulH94rUDKNHxh/X3YKPALGEeCajV484kFtJd85QMAq25dKc/KpIWAxi1lvEJU
+# n7gLJNKVYnHyn2fXng8ocoL4PsTxr3BscZIR68a6b6oTiFRNEmHPQ+rFbBlCn+or
+# keMFUZ2C7LUuw8UKg6pL7VgSyaoqbFb0G1POiPbl2lGxbpEpq+G2Y2WR5veBd4Qi
+# ZS38DOlNjz+bdqVBc3OF
 # SIG # End signature block
