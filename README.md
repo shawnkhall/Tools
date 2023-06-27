@@ -7,9 +7,9 @@
 ## ChromeDownloader.ps1
 
 ### SYNOPSIS
-```
-ChromeDownloader: Obtains information about the current version of Chrome for different hardware and operating systems
-```
+
+**ChromeDownloader**: Obtains information about the current version of Chrome for different hardware and operating systems
+
 
 Inspired by [COI](https://github.com/lyonna/ChromeOfflineInstallerDownloadAPI/) by [lyonna](https://github.com/lyonna/), [this tool](https://github.com/shawnkhall/Tools/blob/main/ChromeDownloader.ps1) provides a command-line interface to download or collect information about various versions of the Google Chrome offline installation packages. The goal of this project was to provide access to the still maintained v109 builds for Windows Server 2012 and 2012r2 for updating devices that are not connected to the Internet. Google has yet to provide a means to fulfill this need so here we are.
 
@@ -24,8 +24,8 @@ Obtains information about the current version of Chrome for different hardware a
 ### SYNTAX
 ```
 .\ChromeDownloader.ps1 [[-platform] <String>] [[-osversion] <String>] [[-bits] <String>]
-    [[-disposition] <String>] [-release <String>] [-download] [-overwrite] [-rename] [-jsonsave] [-xmlsave] [-prefix
-    <String>] [<CommonParameters>]
+    [[-disposition] <String>] [-release <String>] [-type <String>] [-download] [-overwrite] 
+    [-rename] [-jsonsave] [-xmlsave] [-prefix <String>] [<CommonParameters>]
 ```
 
 ### USAGE
