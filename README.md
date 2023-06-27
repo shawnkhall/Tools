@@ -1,5 +1,7 @@
 # Tools
 
+[![made-with-powershell](https://img.shields.io/badge/PowerShell-1f425f?style=plastic&logo=Powershell)](https://microsoft.com/PowerShell)
+[![License: Unlicense](https://img.shields.io/badge/License-Unlicense-blueviolet.svg?style=plastic&logo=unlicense)](https://opensource.org/licenses/unlicense/)
 
 
 ## ChromeDownloader.ps1
@@ -26,6 +28,19 @@ Obtains information about the current version of Chrome for different hardware a
     <String>] [<CommonParameters>]
 ```
 
+### USAGE
+
+Please don't run code you don't understand. While this is free, functional, and works in all my testing, it may not work for you. There is no guarantee or support provided outside of the [issues](https://github.com/shawnkhall/Tools/issues) page. If you don't know what to do, find a trusted advisor to help you set up your environment. 
+
+1. Open `PowerShell` on your device. (Start, PowerShell)
+1. [Download ChromeDownloader.ps1](https://raw.githubusercontent.com/shawnkhall/Tools/main/ChromeDownloader.ps1):  `curl.exe -O https://raw.githubusercontent.com/shawnkhall/Tools/main/ChromeDownloader.ps1`
+1. Run any of the examples. Try it with: `./ChromeDownloader.ps1 win 11 64 -download -t msi` or `help ./ChromeDownloader.ps1 -examples`
+
+If you have modified the script or removed the code signature, you may need to **unblock** the script with:
+```
+Unblock-File ChromeDownloader.ps1
+```
+
 
 ### EXAMPLES
 
@@ -37,6 +52,11 @@ Display the latest 64-bit build of Chrome for Windows 11
 Download the latest 64-bit build of Chrome for Windows 11
 ```
 .\ChromeDownloader.ps1 win 64 -download
+```
+
+Download the latest 64-bit MSI stable release of Chrome for Windows 10/11 and save it with the version, bit-type and release type in the filename.
+```
+.\ChromeDownloader.ps1 win cur 64 -t msi -download -prefix 'Chrome-%v_%b_%r'
 ```
 
 Displays information about the latest 64-bit build of Chrome for Windows Server 2012
@@ -52,6 +72,11 @@ Download the latest 64-bit beta build of Chrome for Windows 10 and inserts the b
 Display the latest build of Chrome for macOS
 ```
 .\ChromeDownloader.ps1 mac
+```
+
+Download the current Windows Group Policy administrative templates for Chrome
+```
+.\ChromeDownloader.ps1 -do url -t adm -download
 ```
 
 Download the current build of Chrome x64 for Windows 11 to a file under C:/Browsers, named to include the version of Chrome, the platform and OS version, the bit-type and release type, as well as creating both an XML and a JSON file with details about the download beside the binary, and returns details via the pipeline.
