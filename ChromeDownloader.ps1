@@ -1,7 +1,7 @@
 
 <#PSScriptInfo
 
-.VERSION 2.0
+.VERSION 3.0
 
 .GUID c65575a3-2b12-461e-99b3-35dfd0e644b4
 
@@ -26,6 +26,7 @@
 .EXTERNALSCRIPTDEPENDENCIES 
 
 .RELEASENOTES
+ 3.0: Adds "current" OS version support (treated as current year), release type (for adm, admx, admadmx, bundle, dmg, msi, pkg, and policy files), vastly improves direct download performance, removes dependence on a temporary file, and expands examples.
  2.0: Removes OS Version validation, removes bit-massaging for unsupported operating systems, improves parsing for named OS versions, adds pipeline support (now default), changes disposition behavior, expands examples and parameters. This version also changes default OS version to 11 since that number is safely cross-platform.
  1.4: Add 32-bit support for Server 2003 (5.2) through 2008 (6.0) and 32/64-bit support for Server 2008 R2 (6.1)
  1.3: Bug fixes
@@ -40,23 +41,27 @@
 <# 
 
 .SYNOPSIS
- ChromeDownloader: Obtains information about the current version of Chrome for different hardware and operating system
+ ChromeDownloader: Obtains information about the current version of Chrome for different hardware and operating systems
 
 .DESCRIPTION 
- Obtains information about the current version of Chrome for different hardware and operating system, optionally downloading, exporting as JSON, XML or displaying information.
+ Obtains information about the current version of Chrome for different hardware and operating systems, optionally downloading, exporting as JSON, XML or displaying information.
  Note: While you can use any value for the OS version, unsupported operating systems do not receive security updates and the versions available for download from Google are not secure and are not supported. Likewise, not all operating systems support both a 32-bit and 64-bit version. 
 
 .PARAMETER platform
  Specifies the operating system: win or mac
 
 .PARAMETER osversion
- Specifies the OS version: 5.2, 6.0, 6.1, 6.2, 6.3, 7, 8, 10, 11, 12, 13, 2003, 2008, 2008r2, 2012, 2012r2, 2016, 2019, 2022, 21H1, ...
+ Specifies the OS version: 5.2, 6.0, 6.1, 6.2, 6.3, 7, 8, 10, 11, 12, 13, 2003, 2008, 2008r2, 2012, 2012r2, 2016, 2019, 2022, 21H1, 22H2, ...
 
 .PARAMETER bits
  Specifies the bit-type: x64 or x86
 
 .PARAMETER release
- Specifies the release type: stable, beta, dev or canary
+ Specifies the release: stable, beta, dev or canary
+
+.PARAMETER type
+ Specifies the release type: default, adm, admx, admadmx, bundle, dmg, exe, msi, pkg, policy
+ Note: ONLY stable releases of these files are available, with few exceptions (beta for msi, dmg, pkg, and policy). Older releases, like v109 for Windows Server 2012, do not offer non-exe release types.
 
 .PARAMETER disposition
  Specifies disposition: pipeline, url, info, status
@@ -91,6 +96,10 @@
  Download the latest 64-bit build of Chrome for Windows 11
 
 .EXAMPLE
+ .\ChromeDownloader.ps1 win cur 64 -t msi -download -prefix 'Chrome-%v_%b_%r'
+ Download the latest 64-bit MSI stable release of Chrome for Windows 10/11 and save it with the version, bit-type and release type in the filename.
+
+.EXAMPLE
  .\ChromeDownloader.ps1 win -os 2012 -b 64 -do info
  Display information about the latest 64-bit build of Chrome for Windows Server 2012
 
@@ -103,6 +112,10 @@
  Display the latest build of Chrome for macOS 11
 
 .EXAMPLE
+ .\ChromeDownloader.ps1 -do url -t adm -download
+ Download the current Windows Group Policy administrative templates for Chrome
+
+.EXAMPLE
  .\ChromeDownloader.ps1 -download -jsonsave -xmlsave -prefix 'C:/Browsers/Chrome-%v_%p%osv_%b_%r'
  Download the current build of Chrome x64 for Windows 11 to a file under C:/Browsers, named to include the version of Chrome, the platform and OS version, the bit-type and release type, as well as creating both an XML and a JSON file with details about the download beside the binary, and returns details via the pipeline.
 
@@ -111,6 +124,7 @@
  Display information about the latest 64-bit releases of Chrome for Windows 2008r2, 2012 and 10, formatting the results in a table.
 
 #>
+
 
 Param(
 	[ValidateSet("win", "mac", IgnoreCase = $false)]
@@ -136,6 +150,11 @@ Param(
 	[Parameter(ValueFromPipelineByPropertyName=$true)]
 	[Alias("Rel")]
 	[string] $release = "stable", 
+	
+	[ValidateSet("default", "adm", "admx", "admadmx", "bundle", "dmg", "exe", "msi", "pkg", "policy", IgnoreCase = $false)]
+	[Parameter(ValueFromPipelineByPropertyName=$true)]
+	[Alias("t")]
+	[string] $type = "default", 
 	
 	[Parameter(ValueFromPipelineByPropertyName=$true)]
 	[Alias("down")]
@@ -163,9 +182,13 @@ Param(
 )
 
 
+# settings
+Set-Variable ProgressPreference SilentlyContinue
 
+
+# support
 function cdFormatXML([string]$xmlpath, [switch]$omitprolog) {
-	Write-Verbose	"cdFormatXML"
+	Write-Verbose	"cdFormatXML `"$xmlpath`", $omitprolog"
 	$sb	= New-Object System.Text.StringBuilder
 	$sw	= New-Object System.IO.StringWriter($sb)
 	$encoding	= [System.Text.Encoding]::UTF8
@@ -187,12 +210,22 @@ function cdFormatXML([string]$xmlpath, [switch]$omitprolog) {
 
 
 function cdFormatJSON([string]$jsonpath) {
-	Write-Verbose	"cdFormatJSON"
+	Write-Verbose	"cdFormatJSON `"$jsonpath`""
 	$json	= ($chromeDownload | ConvertTo-Json)
 	if($jsonpath){
 		$json | Set-Content -Path ($jsonpath -replace "'", "")
 	}else{
 		return $json
+	}
+}
+
+
+function cdFixURL([string]$root, [string]$path) {
+	Write-Verbose	"cdFixURL `"$root`", `"$path`""
+	if( $path -like "*:*" ){
+		return $path.Trim()
+	}else{
+		return "$($root.Trim())$($path.Trim())"
 	}
 }
 
@@ -206,6 +239,7 @@ Write-Verbose	"  bits:	$bits"
 Write-Verbose	"  release:	$release"
 Write-Verbose	"  osversion:	$osversion"
 Write-Verbose	"  disposition:	$disposition"
+Write-Verbose	"  type:	$type"
 Write-Verbose	"  download:	$download"
 Write-Verbose	"  overwrite:	$overwrite"
 Write-Verbose	"  rename:	$rename"
@@ -216,7 +250,6 @@ Write-Verbose	"  prefix:	$prefix"
 
 Switch ($platform) {
 	'win' {
-		$ext	= '.exe'
 		$appid	= '{8A69D345-D564-463C-AFF1-A69D9E530F96}'
 		Switch ($osversion) {
 			{ @('21H2', '2022', '22H2') -contains $_ } 	{ $osversion = '11.0'; break }
@@ -229,6 +262,7 @@ Switch ($platform) {
 			{ @('7', '7.0', '2008r2') -contains $_ } 	{ $osversion = '6.1'; break }
 			{ @('vista', '2008') -contains $_ } 	{ $osversion = '6.0'; break }
 			{ @('xp', '2003', '2003r2') -contains $_ } 	{ $osversion = '5.2'; break }
+			{ @('c', 'cur', 'current') -contains $_ } 	{ $osversion = Get-Date -Format "yyyy"; break }
 			default	{ break }
 		}
 		Switch ($bits) {
@@ -259,11 +293,10 @@ Switch ($platform) {
 		}
 	}
 	{ @('mac', 'macos') -contains $_ } {
-		$ext	= '.dmg'
 		$bits	= 'x64'
 		Switch ($osversion) {
-			{ @('10', '10.0') -contains $_ } { $osversion = "11.0"; break }
-			{ @('11', '12', '13') -contains $_ } { $osversion = "$osversion.0"; break }
+			{ @('10', '10.0') -contains $_ } 	{ $osversion = "11.0"; break }
+			{ @('11', '12', '13') -contains $_ } 	{ $osversion = "$osversion.0"; break }
 			default	{ break }
 		}
 		Switch ($release) {
@@ -294,15 +327,47 @@ $header	= @{ "Accept"="text/xml"; "Content-Type"="text/xml" }
 Write-Verbose 	"  header:	$header"
 $body	= "<?xml version='1.0' encoding='UTF-8'?><request protocol='3.0' version='1.3.23.9' shell_version='1.3.21.103' ismachine='0' sessionid='{00000000-0000-0000-0000-000000000000}' installsource='ondemandcheckforupdate' requestid='{00000000-0000-0000-0000-000000000000}' dedup='cr'><hw sse='1' sse2='1' sse3='1' ssse3='1' sse41='1' sse42='1' avx='1' physmemory='12582912' /><os platform='$platform' version='$osversion' arch='$bits'/><app appid='$appid' ap='$ap' version='' nextversion='' lang='' brand='GGLS' client=''><updatecheck/></app></request>"
 Write-Verbose 	"  body:	$body"
-$xmlfile	= New-TemporaryFile
-Write-Verbose 	"  xmlfile:	$xmlfile"
-Invoke-RestMethod -Uri "https://tools.google.com/service/update2" -Method POST -Body $body -Headers $header -OutFile $xmlfile
+$xmlDoc	= Invoke-RestMethod -Uri "https://tools.google.com/service/update2" -Method POST -Body $body -Headers $header 
+$constants	= Invoke-RestMethod -Uri "https://chromeenterprise.google/static/js/browser-template.min.js" -Method GET
+
+# stable		
+$match = select-string "DOWNLOAD_HOST\:`"([^'`"]+)`"" -inputobject $constants;	 $sDOWNLOAD_HOST	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "FILESIZES\:.+?WIN64_MSI\:`"([^'`"]+)`"" -inputobject $constants;	 $sSize_WIN64_MSI	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "INSTALLER_PATH\:.+?WIN64_MSI\:`"([^'`"]+)`"" -inputobject $constants;	 $sPath_WIN64_MSI	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "FILESIZES\:.+?WIN_MSI\:`"([^'`"]+)`"" -inputobject $constants;	 $sSize_WIN32_MSI	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "INSTALLER_PATH\:.+?WIN_MSI\:`"([^'`"]+)`"" -inputobject $constants;	 $sPath_WIN32_MSI	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "FILESIZES\:.+?WIN64_BUNDLE\:`"([^'`"]+)`"" -inputobject $constants;	 $sSize_WIN64_BUNDLE	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "INSTALLER_PATH\:.+?WIN64_BUNDLE:`"([^'`"]+)`"" -inputobject $constants;	 $sPath_WIN64_BUNDLE	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "FILESIZES\:.+?WIN_BUNDLE\:`"([^'`"]+)`"" -inputobject $constants;	 $sSize_WIN32_BUNDLE	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "INSTALLER_PATH\:.+?WIN_BUNDLE\:`"([^'`"]+)`"" -inputobject $constants;	 $sPath_WIN32_BUNDLE	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "FILESIZES\:.+?MAC_DMG\:`"([^'`"]+)`"" -inputobject $constants;	 $sSize_MAC_DMG	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "INSTALLER_PATH\:.+?MAC\:`"([^'`"]+)`"" -inputobject $constants;	 $sPath_MAC_DMG	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "FILESIZES\:.+?MAC_PKG\:`"([^'`"]+)`"" -inputobject $constants;	 $sSize_MAC_PKG	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "INSTALLER_PATH\:.+?MAC_PKG\:`"([^'`"]+)`"" -inputobject $constants;	 $sPath_MAC_PKG	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "FILESIZES\:.+?ADMADMX\:`"([^'`"]+)`"" -inputobject $constants;	 $sSize_ADMADMX	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "INSTALLER_PATH\:.+?ADMADMX\:`"([^'`"]+)`"" -inputobject $constants;	 $sPath_ADMADMX	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "FILESIZES\:.+?ADM\:`"([^'`"]+)`"" -inputobject $constants;	 $sSize_ADM	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "INSTALLER_PATH\:.+?ADM\:`"([^'`"]+)`"" -inputobject $constants;	 $sPath_ADM	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "FILESIZES\:.+?ADMX\:`"([^'`"]+)`"" -inputobject $constants;	 $sSize_ADMX	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "INSTALLER_PATH\:.+?ADMX\:`"([^'`"]+)`"" -inputobject $constants;	 $sPath_ADMX	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "FILESIZES\:.+?POLICY_DEV\:`"([^'`"]+)`"" -inputobject $constants;	 $sSize_POLICY_DEV	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "INSTALLER_PATH\:.+?POLICY_DEV\:`"([^'`"]+)`"" -inputobject $constants;	 $sPath_POLICY_DEV	 = $match.Matches.groups[1].value.Trim();
+# beta		
+$match = select-string "FILESIZES\:.+?WIN64_MSI_BETA\:`"([^'`"]+)`"" -inputobject $constants;	 $sSize_WIN64_MSI_BETA	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "INSTALLER_PATH\:.+?WIN64_MSI_BETA\:`"([^'`"]+)`"" -inputobject $constants;	 $sPath_WIN64_MSI_BETA	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "FILESIZES\:.+?WIN_MSI_BETA\:`"([^'`"]+)`"" -inputobject $constants;	 $sSize_WIN_MSI_BETA	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "INSTALLER_PATH\:.+?WIN_MSI_BETA\:`"([^'`"]+)`"" -inputobject $constants;	 $sPath_WIN_MSI_BETA	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "FILESIZES\:.+?MAC_DMG_BETA\:`"([^'`"]+)`"" -inputobject $constants;	 $sSize_MAC_DMG_BETA	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "INSTALLER_PATH\:.+?MAC_DMG_BETA\:`"([^'`"]+)`"" -inputobject $constants;	 $sPath_MAC_DMG_BETA	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "FILESIZES\:.+?MAC_PKG_BETA\:`"([^'`"]+)`"" -inputobject $constants;	 $sSize_MAC_PKG_BETA	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "INSTALLER_PATH\:.+?MAC_PKG_BETA\:`"([^'`"]+)`"" -inputobject $constants;	 $sPath_MAC_PKG_BETA	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "FILESIZES\:.+?POLICY_BETA\:`"([^'`"]+)`"" -inputobject $constants;	 $sSize_POLICY_BETA	 = $match.Matches.groups[1].value.Trim();
+$match = select-string "INSTALLER_PATH\:.+?POLICY_BETA\:`"([^'`"]+)`"" -inputobject $constants;	 $sPath_POLICY_BETA	 = $match.Matches.groups[1].value.Trim();
 
 
 # parse the results
 Write-Verbose	""
 Write-Verbose	"Response"
-$xmlDoc	= [xml](Get-Content -Path $xmlfile -Encoding UTF8)
 $status	= $xmlDoc.SelectSingleNode("//response/app/updatecheck/@status").Value
 Write-Verbose	"  status:	$status"
 $url	= $xmlDoc.SelectSingleNode("//response/app/updatecheck/urls/url[last()]/@codebase").Value
@@ -316,6 +381,118 @@ Write-Verbose	"  size:	$size"
 $sha256	= $xmlDoc.SelectSingleNode("//response/app/updatecheck/manifest/packages/package/@hash_sha256").Value
 Write-Verbose	"  sha256:	$sha256"
 
+
+# type handling
+Switch ($type) {
+	'adm'	{ 
+			$ext = '.adm'; 
+			$sha256 = ''
+			$package = ''
+			$url = cdFixURL "$sDOWNLOAD_HOST" "$sPath_ADM"
+			$size = $sSize_ADM
+			break
+		}
+	'admx'	{ 
+			$ext = '.zip';
+			$sha256 = ''
+			$package = ''
+			$url = cdFixURL "$sDOWNLOAD_HOST" "$sPath_ADMX"
+			$size = $sSize_ADMX
+			break
+		}
+	'admadmx'	{ 
+			$ext = '.zip';
+			$sha256 = ''
+			$package = ''
+			$url = cdFixURL "$sDOWNLOAD_HOST" "$sPath_ADMADMX"
+			$size = $sSize_ADMADMX
+			break
+		}
+	'bundle'	{
+			Write-Verbose	"Note: The Bundle version only supports the currently available stable release."
+			$ext = '.zip';
+			$sha256 = ''
+			$package = ''
+			if ( $bits -eq 'x64' ){
+				$url = cdFixURL "$sDOWNLOAD_HOST" "$sPath_WIN64_BUNDLE"
+				$size = $sSize_WIN64_BUNDLE
+			}else{
+				$url = cdFixURL "$sDOWNLOAD_HOST" "$sPath_WIN32_BUNDLE"
+				$size = $sSize_WIN32_BUNDLE
+			}
+			break
+		}
+	'msi'	{
+			Write-Verbose	"Note: The MSI version only supports the currently available stable and beta releases."
+			$ext = '.msi';
+			$sha256 = ''
+			$package = ''
+			if ( $bits -eq 'x64' ){
+				if ( @('beta','dev','canary') -contains $release ){
+					#beta
+					$url = cdFixURL "$sDOWNLOAD_HOST" "$sPath_WIN64_MSI_BETA"
+					$size = $sSize_WIN64_MSI_BETA
+				} else {
+					#stable
+					$url = cdFixURL "$sDOWNLOAD_HOST" "$sPath_WIN64_MSI"
+					$size = $sSize_WIN64_MSI
+				}
+			}else{
+				if ( @('beta','dev','canary') -contains $release ){
+					#beta
+					$url = cdFixURL "$sDOWNLOAD_HOST" "$sPath_WIN_MSI_BETA"
+					$size = $sSize_WIN_MSI_BETA
+				} else {
+					#stable
+					$url = cdFixURL "$sDOWNLOAD_HOST" "$sPath_WIN32_MSI"
+					$size = $sSize_WIN32_MSI
+				}
+			}
+			break
+		}
+	'pkg'	{
+			Write-Verbose	"Note: The PKG version only supports the currently available stable and beta releases."
+			$ext = '.pkg';
+			$sha256 = ''
+			$package = ''
+			if ( @('beta','dev','canary') -contains $release ){
+				#beta
+				$url = cdFixURL "$sDOWNLOAD_HOST" "$sPath_MAC_PKG_BETA"
+				$size = $sSize_MAC_PKG_BETA
+			} else {
+				#stable
+				$url = cdFixURL "$sDOWNLOAD_HOST" "$sPath_MAC_PKG"
+				$size = $sSize_MAC_PKG
+			}
+			break
+		}
+	'policy'	{
+			$ext = '.zip';
+			$sha256 = ''
+			$package = ''
+			if ( @('beta','dev','canary') -contains $release ){
+				#beta
+				$url = cdFixURL "$sDOWNLOAD_HOST" "$sPath_POLICY_BETA"
+				$size = $sSize_POLICY_BETA
+			} else {
+				#stable
+				$url = cdFixURL "$sDOWNLOAD_HOST" "$sPath_POLICY_DEV"
+				$size = $sSize_POLICY_DEV
+			}
+			break
+		}
+	default	{
+			Switch ($platform) {
+				{ @('mac', 'macos') -contains $_ } 	{ $ext = '.dmg'; break }
+				default 	{ $ext = '.exe'; break }
+			}
+		}
+}
+if($package -eq ''){
+	$package 	= Split-Path $url -leaf
+	$url 	= $url -replace $package, ''
+}
+$url 	= $url -replace ' ', ''
 
 # rename the download file if requested
 Write-Verbose	""
@@ -337,7 +514,9 @@ if($prefix){
 	$prefix	= $prefix -replace "%osv", "$osversion"
 	$prefix	= $prefix -replace "%os", "$platform"
 	$prefix	= $prefix -replace "%release", "$release"
+	$prefix	= $prefix -replace "%type", "$type"
 	$prefix	= $prefix -replace "%version", "$version"
+	$prefix	= $prefix -replace "%t", "$type"
 	$prefix	= $prefix -replace "%b", "$bits"
 	$prefix	= $prefix -replace "%p", "$platform"
 	$prefix	= $prefix -replace "%r", "$release"
@@ -365,6 +544,7 @@ $chromeDownload	= New-Object PSObject -Property @{
 	Release	= $release
 	OsVersion	= $osversion
 	Disposition	= $disposition
+	Type	= $type
 	Download	= $download
 	Overwrite	= $overwrite
 	Rename	= $rename
@@ -379,7 +559,7 @@ $chromeDownload	= New-Object PSObject -Property @{
 
 # generate output
 if($status -ne 'ok'){
-	Write-Warning "Error: $platform $osversion $bits $release"
+	Write-Warning "Error: $platform $osversion $bits $release $type"
 }
 if($jsonsave){ cdFormatJSON ("$file.json") }
 if($xmlsave){  cdFormatXML  ("$file.xml") }
@@ -397,14 +577,12 @@ Switch ($disposition){
 	'pipeline'	{ $chromeDownload; break; }
 	default	{ $chromeDownload; break; }
 }
-Remove-Item $xmlfile
-
 
 # SIG # Begin signature block
-# MIIrKwYJKoZIhvcNAQcCoIIrHDCCKxgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
+# MIIrKQYJKoZIhvcNAQcCoIIrGjCCKxYCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUqzA0wE50Ff5iif5i0dgwCR7n
-# 0ZGggiQ7MIIEMjCCAxqgAwIBAgIBATANBgkqhkiG9w0BAQUFADB7MQswCQYDVQQG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUfthFMvrwG3QPg5GraswSYoNY
+# +o2ggiQ6MIIEMjCCAxqgAwIBAgIBATANBgkqhkiG9w0BAQUFADB7MQswCQYDVQQG
 # EwJHQjEbMBkGA1UECAwSR3JlYXRlciBNYW5jaGVzdGVyMRAwDgYDVQQHDAdTYWxm
 # b3JkMRowGAYDVQQKDBFDb21vZG8gQ0EgTGltaXRlZDEhMB8GA1UEAwwYQUFBIENl
 # cnRpZmljYXRlIFNlcnZpY2VzMB4XDTA0MDEwMTAwMDAwMFoXDTI4MTIzMTIzNTk1
@@ -560,76 +738,76 @@ Remove-Item $xmlfile
 # cofBbk1a0x7q8ETmMm8c6xdOlMN4ZSA7D0GqH+mhQZ3+sbigZSo04N6o+TzmwTC7
 # wKBjLPxcFgCo0MR/6hGdHgbGpm0yXbQ4CStJB6r97DDa8acvz7f9+tCjhNknnvsB
 # Zne5VhDhIG7GrrH5trrINV0zdo7xfCAMKneutaIChrop7rRaALGMq+P5CslUXdS5
-# anSevUiumDCCBvYwggTeoAMCAQICEQCQOX+a0ko6E/K9kV8IOKlDMA0GCSqGSIb3
-# DQEBDAUAMH0xCzAJBgNVBAYTAkdCMRswGQYDVQQIExJHcmVhdGVyIE1hbmNoZXN0
-# ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGDAWBgNVBAoTD1NlY3RpZ28gTGltaXRlZDEl
-# MCMGA1UEAxMcU2VjdGlnbyBSU0EgVGltZSBTdGFtcGluZyBDQTAeFw0yMjA1MTEw
-# MDAwMDBaFw0zMzA4MTAyMzU5NTlaMGoxCzAJBgNVBAYTAkdCMRMwEQYDVQQIEwpN
-# YW5jaGVzdGVyMRgwFgYDVQQKEw9TZWN0aWdvIExpbWl0ZWQxLDAqBgNVBAMMI1Nl
-# Y3RpZ28gUlNBIFRpbWUgU3RhbXBpbmcgU2lnbmVyICMzMIICIjANBgkqhkiG9w0B
-# AQEFAAOCAg8AMIICCgKCAgEAkLJxP3nh1LmKF8zDl8KQlHLtWjpvAUN/c1oonyR8
-# oDVABvqUrwqhg7YT5EsVBl5qiiA0cXu7Ja0/WwqkHy9sfS5hUdCMWTc+pl3xHl2A
-# ttgfYOPNEmqIH8b+GMuTQ1Z6x84D1gBkKFYisUsZ0vCWyUQfOV2csJbtWkmNfnLk
-# Q2t/yaA/bEqt1QBPvQq4g8W9mCwHdgFwRd7D8EJp6v8mzANEHxYo4Wp0tpxF+rY6
-# zpTRH72MZar9/MM86A2cOGbV/H0em1mMkVpCV1VQFg1LdHLuoCox/CYCNPlkG1n9
-# 4zrU6LhBKXQBPw3gE3crETz7Pc3Q5+GXW1X3KgNt1c1i2s6cHvzqcH3mfUtozlop
-# YdOgXCWzpSdoo1j99S1ryl9kx2soDNqseEHeku8Pxeyr3y1vGlRRbDOzjVlg59/o
-# FyKjeUFiz/x785LaruA8Tw9azG7fH7wir7c4EJo0pwv//h1epPPuFjgrP6x2lEGd
-# ZB36gP0A4f74OtTDXrtpTXKZ5fEyLVH6Ya1N6iaObfypSJg+8kYNabG3bvQF20EF
-# xhjAUOT4rf6sY2FHkbxGtUZTbMX04YYnk4Q5bHXgHQx6WYsuy/RkLEJH9FRYhTfl
-# x2mn0iWLlr/GreC9sTf3H99Ce6rrHOnrPVrd+NKQ1UmaOh2DGld/HAHCzhx9zPuW
-# FcUCAwEAAaOCAYIwggF+MB8GA1UdIwQYMBaAFBqh+GEZIA/DQXdFKI7RNV8GEgRV
-# MB0GA1UdDgQWBBQlLmg8a5orJBSpH6LfJjrPFKbx4DAOBgNVHQ8BAf8EBAMCBsAw
-# DAYDVR0TAQH/BAIwADAWBgNVHSUBAf8EDDAKBggrBgEFBQcDCDBKBgNVHSAEQzBB
-# MDUGDCsGAQQBsjEBAgEDCDAlMCMGCCsGAQUFBwIBFhdodHRwczovL3NlY3RpZ28u
-# Y29tL0NQUzAIBgZngQwBBAIwRAYDVR0fBD0wOzA5oDegNYYzaHR0cDovL2NybC5z
-# ZWN0aWdvLmNvbS9TZWN0aWdvUlNBVGltZVN0YW1waW5nQ0EuY3JsMHQGCCsGAQUF
-# BwEBBGgwZjA/BggrBgEFBQcwAoYzaHR0cDovL2NydC5zZWN0aWdvLmNvbS9TZWN0
-# aWdvUlNBVGltZVN0YW1waW5nQ0EuY3J0MCMGCCsGAQUFBzABhhdodHRwOi8vb2Nz
-# cC5zZWN0aWdvLmNvbTANBgkqhkiG9w0BAQwFAAOCAgEAc9rtaHLLwrlAoTG7tAOj
-# LRR7JOe0WxV9qOn9rdGSDXw9NqBp2fOaMNqsadZ0VyQ/fg882fXDeSVsJuiNaJPO
-# 8XeJOX+oBAXaNMMU6p8IVKv/xH6WbCvTlOu0bOBFTSyy9zs7WrXB+9eJdW2YcnL2
-# 9wco89Oy0OsZvhUseO/NRaAA5PgEdrtXxZC+d1SQdJ4LT03EqhOPl68BNSvLmxF4
-# 6fL5iQQ8TuOCEmLrtEQMdUHCDzS4iJ3IIvETatsYL254rcQFtOiECJMH+X2D/miY
-# NOR35bHOjJRs2wNtKAVHfpsu8GT726QDMRB8Gvs8GYDRC3C5VV9HvjlkzrfaI1Qy
-# 40ayMtjSKYbJFV2Ala8C+7TRLp04fDXgDxztG0dInCJqVYLZ8roIZQPl8SnzSIoJ
-# AUymefKithqZlOuXKOG+fRuhfO1WgKb0IjOQ5IRT/Cr6wKeXqOq1jXrO5OBLoTOr
-# C3ag1WkWt45mv1/6H8Sof6ehSBSRDYL8vU2Z7cnmbDb+d0OZuGktfGEv7aOwSf5b
-# vmkkkf+T/FdpkkvZBT9thnLTotDAZNI6QsEaA/vQ7ZohuD+vprJRVNVMxcofEo1X
-# xjntXP/snyZ2rWRmZ+iqMODSrbd9sWpBJ24DiqN04IoJgm6/4/a3vJ4LKRhogaGc
-# P24WWUsUCQma5q6/YBXdhvUxggZaMIIGVgIBATBpMFQxCzAJBgNVBAYTAkdCMRgw
-# FgYDVQQKEw9TZWN0aWdvIExpbWl0ZWQxKzApBgNVBAMTIlNlY3RpZ28gUHVibGlj
-# IENvZGUgU2lnbmluZyBDQSBSMzYCEQDCQwm71IrzJIwoQU/zm0zEMAkGBSsOAwIa
-# BQCgeDAYBgorBgEEAYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgor
-# BgEEAYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3
-# DQEJBDEWBBSBnKQ0xBQwp2E5KeyPMb1Rh5B4WzANBgkqhkiG9w0BAQEFAASCAgBA
-# aV9X/kWGeSTUcghp6Z7C+jLTVWuqRRaEFSj1UhN9SRZy161wLj2FqTezb/eNx3rw
-# oPqNyO6PLxTxRhKWp+n45tuGTlbZ7yvBKL668rv6Z3y1I9gVKEubOGWetSAvnZo/
-# 9xrH4VkdJW8wnFfJ0WhqnO9QpA7/I2h/hefFE2Ni8ScIOqgioeHmLBYcdO5wmVya
-# mFlv+0NpcIxQC6cgTCd+Q1T7yr1YToyS1Aecsw1PcSjYyWZMbb9vmUoDtJQLXa4Z
-# sFekeKHCXV707aHp5ce9ae8dJk5gZo5H4GsG3+4PqnaOSu2i8Jw/ceN3x2YgtvwT
-# BwTZuMCoZmIxR1oOFhgIjCDPvur4TIxh6fdQY6yYgwMTR6VKy33YINJgJPKb387v
-# mjQBmvjjvayq5/1YjJHFCburxZnNMLwm4Tt4+a4oLUaZY3/VNwYD/lpAAJodB/5I
-# ezFK5dwmsHYpaBR0mt4EMkuW0A9r2JVgmFt9ogxe8vUCL4CqGjKJXD68TcQGlgkL
-# MZ6HO5GnIWGIOquDnKqFhqZeNMIPAFVDAtYjNkDP6iaa3zoRy8JjXQh9xz1yThLU
-# tRTDjRSNThTiEZQ2XNNHz80ar4IIr/vquB8CwVlxRxVYzkYqjxv+eOIzLNo4RXo2
-# 6tDh88UdmOzuSxqIbw6nQHwhwU3eNwaIELWAoAFXIqGCA0wwggNIBgkqhkiG9w0B
-# CQYxggM5MIIDNQIBATCBkjB9MQswCQYDVQQGEwJHQjEbMBkGA1UECBMSR3JlYXRl
-# ciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3JkMRgwFgYDVQQKEw9TZWN0aWdv
-# IExpbWl0ZWQxJTAjBgNVBAMTHFNlY3RpZ28gUlNBIFRpbWUgU3RhbXBpbmcgQ0EC
-# EQCQOX+a0ko6E/K9kV8IOKlDMA0GCWCGSAFlAwQCAgUAoHkwGAYJKoZIhvcNAQkD
-# MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMjMwNDA4MTAwOTI5WjA/Bgkq
-# hkiG9w0BCQQxMgQwQCA5RJTpdfUTMYPW/reZtEwgKK3UqedJRe5Hm3IP6ftRblTj
-# IH/tsZ1b53K+gErnMA0GCSqGSIb3DQEBAQUABIICAIva3MqIfB9CSrZl0fzrWPJ8
-# Q9yJ66x3bbaypSQT8Gk5iaSVILBNIAVEKaZmGtr3nHnoyv4jRGPVK+B9/0p5DBAL
-# qmLOc9FH8i1VKEXP2lefURFqvY+wUYBftl0CIp6Cv0NHZ/CD3brF4WJx+17j0XuE
-# A0imRiOjk9Xb+qM3xW3N1EzO8nwwe74GvmSS3ziaONDcg5PkIJeK4BnHr6kjthY4
-# MVq1K0Uor0ESh0GHy9MoJtyeCxsVkbwVSESjTf5ij5j4CDOzBXXzR6MAmNcDe6Xn
-# 9JBdEyJ8xGaQk89OJY+3e7VOT+qNa6CmUj/3GS47iIabRFga+nT2YApRIxi2q+SJ
-# ZGd5eBspr9xkCvOBRh3yiarRC2OfA6li/AMoaHBNUS0BOgyY2++N/jgtraPO2XDk
-# V9mywAz3+Jzw9I3/pc3guou0jhT7fBv36Bky/OOQXfbXsVjIvoTvBvQ4W2xOimoe
-# PlXulH94rUDKNHxh/X3YKPALGEeCajV484kFtJd85QMAq25dKc/KpIWAxi1lvEJU
-# n7gLJNKVYnHyn2fXng8ocoL4PsTxr3BscZIR68a6b6oTiFRNEmHPQ+rFbBlCn+or
-# keMFUZ2C7LUuw8UKg6pL7VgSyaoqbFb0G1POiPbl2lGxbpEpq+G2Y2WR5veBd4Qi
-# ZS38DOlNjz+bdqVBc3OF
+# anSevUiumDCCBvUwggTdoAMCAQICEDlMJeF8oG0nqGXiO9kdItQwDQYJKoZIhvcN
+# AQEMBQAwfTELMAkGA1UEBhMCR0IxGzAZBgNVBAgTEkdyZWF0ZXIgTWFuY2hlc3Rl
+# cjEQMA4GA1UEBxMHU2FsZm9yZDEYMBYGA1UEChMPU2VjdGlnbyBMaW1pdGVkMSUw
+# IwYDVQQDExxTZWN0aWdvIFJTQSBUaW1lIFN0YW1waW5nIENBMB4XDTIzMDUwMzAw
+# MDAwMFoXDTM0MDgwMjIzNTk1OVowajELMAkGA1UEBhMCR0IxEzARBgNVBAgTCk1h
+# bmNoZXN0ZXIxGDAWBgNVBAoTD1NlY3RpZ28gTGltaXRlZDEsMCoGA1UEAwwjU2Vj
+# dGlnbyBSU0EgVGltZSBTdGFtcGluZyBTaWduZXIgIzQwggIiMA0GCSqGSIb3DQEB
+# AQUAA4ICDwAwggIKAoICAQCkkyhSS88nh3akKRyZOMDnDtTRHOxoywFk5IrNd7Bx
+# ZYK8n/yLu7uVmPslEY5aiAlmERRYsroiW+b2MvFdLcB6og7g4FZk7aHlgSByIGRB
+# bMfDCPrzfV3vIZrCftcsw7oRmB780yAIQrNfv3+IWDKrMLPYjHqWShkTXKz856vp
+# HBYusLA4lUrPhVCrZwMlobs46Q9vqVqakSgTNbkf8z3hJMhrsZnoDe+7TeU9jFQD
+# kdD8Lc9VMzh6CRwH0SLgY4anvv3Sg3MSFJuaTAlGvTS84UtQe3LgW/0Zux88ahl7
+# brstRCq+PEzMrIoEk8ZXhqBzNiuBl/obm36Ih9hSeYn+bnc317tQn/oYJU8T8l58
+# qbEgWimro0KHd+D0TAJI3VilU6ajoO0ZlmUVKcXtMzAl5paDgZr2YGaQWAeAzUJ1
+# rPu0kdDF3QFAaraoEO72jXq3nnWv06VLGKEMn1ewXiVHkXTNdRLRnG/kXg2b7HUm
+# 7v7T9ZIvUoXo2kRRKqLMAMqHZkOjGwDvorWWnWKtJwvyG0rJw5RCN4gghKiHrsO6
+# I3J7+FTv+GsnsIX1p0OF2Cs5dNtadwLRpPr1zZw9zB+uUdB7bNgdLRFCU3F0wuU1
+# qi1SEtklz/DT0JFDEtcyfZhs43dByP8fJFTvbq3GPlV78VyHOmTxYEsFT++5L+wJ
+# EwIDAQABo4IBgjCCAX4wHwYDVR0jBBgwFoAUGqH4YRkgD8NBd0UojtE1XwYSBFUw
+# HQYDVR0OBBYEFAMPMciRKpO9Y/PRXU2kNA/SlQEYMA4GA1UdDwEB/wQEAwIGwDAM
+# BgNVHRMBAf8EAjAAMBYGA1UdJQEB/wQMMAoGCCsGAQUFBwMIMEoGA1UdIARDMEEw
+# NQYMKwYBBAGyMQECAQMIMCUwIwYIKwYBBQUHAgEWF2h0dHBzOi8vc2VjdGlnby5j
+# b20vQ1BTMAgGBmeBDAEEAjBEBgNVHR8EPTA7MDmgN6A1hjNodHRwOi8vY3JsLnNl
+# Y3RpZ28uY29tL1NlY3RpZ29SU0FUaW1lU3RhbXBpbmdDQS5jcmwwdAYIKwYBBQUH
+# AQEEaDBmMD8GCCsGAQUFBzAChjNodHRwOi8vY3J0LnNlY3RpZ28uY29tL1NlY3Rp
+# Z29SU0FUaW1lU3RhbXBpbmdDQS5jcnQwIwYIKwYBBQUHMAGGF2h0dHA6Ly9vY3Nw
+# LnNlY3RpZ28uY29tMA0GCSqGSIb3DQEBDAUAA4ICAQBMm2VY+uB5z+8VwzJt3jOR
+# 63dY4uu9y0o8dd5+lG3DIscEld9laWETDPYMnvWJIF7Bh8cDJMrHpfAm3/j4MWUN
+# 4OttUVemjIRSCEYcKsLe8tqKRfO+9/YuxH7t+O1ov3pWSOlh5Zo5d7y+upFkiHX/
+# XYUWNCfSKcv/7S3a/76TDOxtog3Mw/FuvSGRGiMAUq2X1GJ4KoR5qNc9rCGPcMMk
+# eTqX8Q2jo1tT2KsAulj7NYBPXyhxbBlewoNykK7gxtjymfvqtJJlfAd8NUQdrVgY
+# a2L73mzECqls0yFGcNwvjXVMI8JB0HqWO8NL3c2SJnR2XDegmiSeTl9O048P5RNP
+# WURlS0Nkz0j4Z2e5Tb/MDbE6MNChPUitemXk7N/gAfCzKko5rMGk+al9NdAyQKCx
+# GSoYIbLIfQVxGksnNqrgmByDdefHfkuEQ81D+5CXdioSrEDBcFuZCkD6gG2UYXvI
+# brnIZ2ckXFCNASDeB/cB1PguEc2dg+X4yiUcRD0n5bCGRyoLG4R2fXtoT4239xO0
+# 7aAt7nMP2RC6nZksfNd1H48QxJTmfiTllUqIjCfWhWYd+a5kdpHoSP7IVQrtKcMf
+# 3jimwBT7Mj34qYNiNsjDvgCHHKv6SkIciQPc9Vx8cNldeE7un14g5glqfCsIo0j1
+# FfwET9/NIRx65fWOGtS5QDGCBlkwggZVAgEBMGkwVDELMAkGA1UEBhMCR0IxGDAW
+# BgNVBAoTD1NlY3RpZ28gTGltaXRlZDErMCkGA1UEAxMiU2VjdGlnbyBQdWJsaWMg
+# Q29kZSBTaWduaW5nIENBIFIzNgIRAMJDCbvUivMkjChBT/ObTMQwCQYFKw4DAhoF
+# AKB4MBgGCisGAQQBgjcCAQwxCjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisG
+# AQQBgjcCAQQwHAYKKwYBBAGCNwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcN
+# AQkEMRYEFEFLSKJffAvyXpRLa3ne7lxTrPJGMA0GCSqGSIb3DQEBAQUABIICACC2
+# 9VZgWggKAip/FHy3jvRC09sMASyXwMNMA3FEm98V4ksUJ5iaQ+s6cIHft+3Cww6X
+# HvvvI0hT2GrcciDDXqCXmegZWaUp5pdzKCeFFVOpCtp32zkiTgQy0kSHHn/qRPqM
+# uK+G7lwQCx4byfY3Swckg5GvsX4lAo7lTKj5OcDawxJT/Hj9yRLRnHnA68GvGGPx
+# zZeFmnaK5OAzsVlR6sZZPsqC625QubT3QdSx/LgwQva80rLCl3vZOP5JgokOYG/t
+# pckhSD24y5zOqBUFUPEVeQT6lv+iGR618/85e1l/jHXbGCcMCLDUFq9mC4X7ZE9O
+# 7EcpiuuUnaFs8USFoBIFurhXZjdTpjIaUhRikA6B35gv7ma3FGpHNHgZU17hlGNf
+# 0HZkMZ0zZPY1hbxCDrXJnOkMpw14pvpmSJvB7oby1yofX4QJkeZMvy2vdxe4/sLB
+# JkIUCDnZoxIElsbzSfGYmyUpsfWOwZSrJTlAGZ9VlkhZwdfiXtOcRQn8A/IPPKkK
+# YdktR48RB0XbcPT3CSN5KGIFpDLuNsK2cQ6D3BdMAAu++lNut9XB1GOYGxYMLYHq
+# +eueCJSUr+IeMFmXIWSVLYSxS1pQhgO3gOL4wihw6FNbnygoObl//c81vctOrcvI
+# BOdSVUTFkCJsKZlYPWgCXbDTG3pzTB+719rPb4GsoYIDSzCCA0cGCSqGSIb3DQEJ
+# BjGCAzgwggM0AgEBMIGRMH0xCzAJBgNVBAYTAkdCMRswGQYDVQQIExJHcmVhdGVy
+# IE1hbmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGDAWBgNVBAoTD1NlY3RpZ28g
+# TGltaXRlZDElMCMGA1UEAxMcU2VjdGlnbyBSU0EgVGltZSBTdGFtcGluZyBDQQIQ
+# OUwl4XygbSeoZeI72R0i1DANBglghkgBZQMEAgIFAKB5MBgGCSqGSIb3DQEJAzEL
+# BgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTIzMDYyNzAzNTMwN1owPwYJKoZI
+# hvcNAQkEMTIEMDPzKJ53/nCT0Wtc1x4djB+CXw41Ep8jJNx+BmBQUnQOI34jbVQ8
+# lYSYMeBgGo7yCDANBgkqhkiG9w0BAQEFAASCAgCSgg7AzzRa5Y/ZrJqCvyT7ZgjS
+# k1zofQztA81J4YlP4ZNPAju7rTCgDwXiPK4DVcfbEoCUS5i96ktDvNNixXz1qqjn
+# iAC2ZgwCZRLGgPed1+FE8OEfKvIyJfnumsQryiCnFlGublncMnUiQdX4Bq/x4Sgx
+# Ct3bVg29mntkQm1s4LhhfTv7lFu97UW2stmxvvaqjd2hpeE8Qp48r0adrLSWEXuR
+# H609AmI3dNKcpKCeJgRmUa3VPYj/GuzhV/1owxbNBOJYC+w/aiPqO1Wk4ylGrGto
+# KyKTkrzlNQIH+7k/F0yn2ERhVKgw+TtWpAGuenrqHlyS19C2HsZPmRw/mbI3PE2B
+# qEqPmDx9To7wTXZo16/J21xjUBMGMxmJZ/swvddQgGQlygaqz9sxZVbpufYrG17i
+# UyQ4sZtneuJM72NGc6k+9lH0TSRiq4IHoLaQG5NcQ7p9vh6irH2L++EUSJvUHa4y
+# NnprINYCJXlNaRYoYXJ1vfeJTg25wgu5T6Erd8JjfaU4REopvTpnG3wmm/ZLlF33
+# eatMfzLeEPuicFQL8DGJI+zV4ECPqSgJmnZcknNuFwglXfEh9Ylyy/WiMTlh/SPL
+# JqpT9HABTFhOQ9dznzNoyiiesZz5hgKZIeB85xfDSb1y8E+W28oS/yx1buDVovwH
+# sj/fbLA6/1QyxgHCww==
 # SIG # End signature block
