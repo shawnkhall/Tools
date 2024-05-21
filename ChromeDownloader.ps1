@@ -1,7 +1,7 @@
 
 <#PSScriptInfo
 
-.VERSION 3.0
+.VERSION 3.1
 
 .GUID c65575a3-2b12-461e-99b3-35dfd0e644b4
 
@@ -26,7 +26,8 @@
 .EXTERNALSCRIPTDEPENDENCIES 
 
 .RELEASENOTES
- 3.0: Adds "current" OS version support (treated as current year), release type (for adm, admx, admadmx, bundle, dmg, msi, pkg, and policy files), vastly improves direct download performance, removes dependence on a temporary file, and expands examples.
+ 3.1: Adds proxy support (thanks to @pethrowilo)
+ 3.0: Adds "current" OS version support (treated as current year), release type (for adm, admx, admadmx, bundle, dmg, msi, pkg, and policy files), vastly improves direct download performance (thanks to @robcmo), removes dependence on a temporary file, and expands examples.
  2.0: Removes OS Version validation, removes bit-massaging for unsupported operating systems, improves parsing for named OS versions, adds pipeline support (now default), changes disposition behavior, expands examples and parameters. This version also changes default OS version to 11 since that number is safely cross-platform.
  1.4: Add 32-bit support for Server 2003 (5.2) through 2008 (6.0) and 32/64-bit support for Server 2008 R2 (6.1)
  1.3: Bug fixes
@@ -184,7 +185,8 @@ Param(
 
 # settings
 Set-Variable ProgressPreference SilentlyContinue
-
+[System.Net.WebRequest]::DefaultWebProxy = [System.Net.WebRequest]::GetSystemWebProxy()
+[System.Net.WebRequest]::DefaultWebProxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
 
 # support
 function cdFormatXML([string]$xmlpath, [switch]$omitprolog) {
@@ -581,8 +583,8 @@ Switch ($disposition){
 # SIG # Begin signature block
 # MIIrKQYJKoZIhvcNAQcCoIIrGjCCKxYCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUfthFMvrwG3QPg5GraswSYoNY
-# +o2ggiQ6MIIEMjCCAxqgAwIBAgIBATANBgkqhkiG9w0BAQUFADB7MQswCQYDVQQG
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUdRdejBwPFu68yyujxcyJgvOf
+# 5ceggiQ6MIIEMjCCAxqgAwIBAgIBATANBgkqhkiG9w0BAQUFADB7MQswCQYDVQQG
 # EwJHQjEbMBkGA1UECAwSR3JlYXRlciBNYW5jaGVzdGVyMRAwDgYDVQQHDAdTYWxm
 # b3JkMRowGAYDVQQKDBFDb21vZG8gQ0EgTGltaXRlZDEhMB8GA1UEAwwYQUFBIENl
 # cnRpZmljYXRlIFNlcnZpY2VzMB4XDTA0MDEwMTAwMDAwMFoXDTI4MTIzMTIzNTk1
@@ -780,34 +782,34 @@ Switch ($disposition){
 # Q29kZSBTaWduaW5nIENBIFIzNgIRAMJDCbvUivMkjChBT/ObTMQwCQYFKw4DAhoF
 # AKB4MBgGCisGAQQBgjcCAQwxCjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisG
 # AQQBgjcCAQQwHAYKKwYBBAGCNwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcN
-# AQkEMRYEFEFLSKJffAvyXpRLa3ne7lxTrPJGMA0GCSqGSIb3DQEBAQUABIICACC2
-# 9VZgWggKAip/FHy3jvRC09sMASyXwMNMA3FEm98V4ksUJ5iaQ+s6cIHft+3Cww6X
-# HvvvI0hT2GrcciDDXqCXmegZWaUp5pdzKCeFFVOpCtp32zkiTgQy0kSHHn/qRPqM
-# uK+G7lwQCx4byfY3Swckg5GvsX4lAo7lTKj5OcDawxJT/Hj9yRLRnHnA68GvGGPx
-# zZeFmnaK5OAzsVlR6sZZPsqC625QubT3QdSx/LgwQva80rLCl3vZOP5JgokOYG/t
-# pckhSD24y5zOqBUFUPEVeQT6lv+iGR618/85e1l/jHXbGCcMCLDUFq9mC4X7ZE9O
-# 7EcpiuuUnaFs8USFoBIFurhXZjdTpjIaUhRikA6B35gv7ma3FGpHNHgZU17hlGNf
-# 0HZkMZ0zZPY1hbxCDrXJnOkMpw14pvpmSJvB7oby1yofX4QJkeZMvy2vdxe4/sLB
-# JkIUCDnZoxIElsbzSfGYmyUpsfWOwZSrJTlAGZ9VlkhZwdfiXtOcRQn8A/IPPKkK
-# YdktR48RB0XbcPT3CSN5KGIFpDLuNsK2cQ6D3BdMAAu++lNut9XB1GOYGxYMLYHq
-# +eueCJSUr+IeMFmXIWSVLYSxS1pQhgO3gOL4wihw6FNbnygoObl//c81vctOrcvI
-# BOdSVUTFkCJsKZlYPWgCXbDTG3pzTB+719rPb4GsoYIDSzCCA0cGCSqGSIb3DQEJ
+# AQkEMRYEFCIrA/qs/FrmtaLGSx2RP47YZWfLMA0GCSqGSIb3DQEBAQUABIICAKTR
+# 1HvHtK/TDqtgcMTGYel7qpERzDEUFRQvJD7wn3Y7asqTYqJcSG5MzPyAyndWXAsZ
+# cPzQjVZDVfv173CfxI4d7uWFvEKy+JXtfGGjm8MiIDpwqWIWURr0Bj64sw4C7/iK
+# dWZ2t8qrrTaT90xoGzk5Al/PRGUPbdZBTlwZgd4iwaq3Jwnw7JH0WvZh1OHFhG3V
+# buy6nDXa8U2Se8yb9yUUa2ih9LhN0MsnajwdnJ5b0NjMQ2wLNRhfPXaPRSrMmj0C
+# IVhoijWefo9QB5SPTgS2elsoXPEHDBTV9On3T8gSTwPyXoumGaQw1QduSQyAi+7R
+# 1rH096cG9y+RJKqJeTw/JDU6rbLvatt0BcUmpX804Zj425FBAFc9S80MiG7r2wvK
+# tpvANjQtNM5SmLwjutWZPb5r88SIIb/V51x6wRgKTZrp9MW65xtnFfGh1UnvPOS5
+# dLHz85WBRd+tJ4s06jRAdIMTkzr60kBOi4UZNSXyDYjpCngp/ZgrtKDIO+g+JwN2
+# EDP+g/wtra/7kqSOQY47wzy8gIB3K5aQHs7sU/UdsJy6xd1YQ2HnUC9x5DHVAdx0
+# I750NsNlHp19wC9wvxcpIagthhRtm5AOienaiZYeUk0fs3uw3wTw+PsKdAAnYboU
+# HP2b51iPiHByk6AoVMv5uyvaLKt25getLT3zkNNuoYIDSzCCA0cGCSqGSIb3DQEJ
 # BjGCAzgwggM0AgEBMIGRMH0xCzAJBgNVBAYTAkdCMRswGQYDVQQIExJHcmVhdGVy
 # IE1hbmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGDAWBgNVBAoTD1NlY3RpZ28g
 # TGltaXRlZDElMCMGA1UEAxMcU2VjdGlnbyBSU0EgVGltZSBTdGFtcGluZyBDQQIQ
 # OUwl4XygbSeoZeI72R0i1DANBglghkgBZQMEAgIFAKB5MBgGCSqGSIb3DQEJAzEL
-# BgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTIzMDYyNzAzNTMwN1owPwYJKoZI
-# hvcNAQkEMTIEMDPzKJ53/nCT0Wtc1x4djB+CXw41Ep8jJNx+BmBQUnQOI34jbVQ8
-# lYSYMeBgGo7yCDANBgkqhkiG9w0BAQEFAASCAgCSgg7AzzRa5Y/ZrJqCvyT7ZgjS
-# k1zofQztA81J4YlP4ZNPAju7rTCgDwXiPK4DVcfbEoCUS5i96ktDvNNixXz1qqjn
-# iAC2ZgwCZRLGgPed1+FE8OEfKvIyJfnumsQryiCnFlGublncMnUiQdX4Bq/x4Sgx
-# Ct3bVg29mntkQm1s4LhhfTv7lFu97UW2stmxvvaqjd2hpeE8Qp48r0adrLSWEXuR
-# H609AmI3dNKcpKCeJgRmUa3VPYj/GuzhV/1owxbNBOJYC+w/aiPqO1Wk4ylGrGto
-# KyKTkrzlNQIH+7k/F0yn2ERhVKgw+TtWpAGuenrqHlyS19C2HsZPmRw/mbI3PE2B
-# qEqPmDx9To7wTXZo16/J21xjUBMGMxmJZ/swvddQgGQlygaqz9sxZVbpufYrG17i
-# UyQ4sZtneuJM72NGc6k+9lH0TSRiq4IHoLaQG5NcQ7p9vh6irH2L++EUSJvUHa4y
-# NnprINYCJXlNaRYoYXJ1vfeJTg25wgu5T6Erd8JjfaU4REopvTpnG3wmm/ZLlF33
-# eatMfzLeEPuicFQL8DGJI+zV4ECPqSgJmnZcknNuFwglXfEh9Ylyy/WiMTlh/SPL
-# JqpT9HABTFhOQ9dznzNoyiiesZz5hgKZIeB85xfDSb1y8E+W28oS/yx1buDVovwH
-# sj/fbLA6/1QyxgHCww==
+# BgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTI0MDUyMTIyMTA0M1owPwYJKoZI
+# hvcNAQkEMTIEMLM3MaWhsjz3tAUneVjt8h7XP7pWVsytlBk6UrzF63WGLBOTbJ13
+# iaLpddC2v6VOfjANBgkqhkiG9w0BAQEFAASCAgB1w34gPo5c8wv19UOIdigLi1TR
+# GexXKOBMtdykAnfWugLHdIX2qxk0IkneftxVRmRLAeTCKMKsdkKwXio70ZHWCIjK
+# FFyTrr5aYuLguP79orL+rdgW4oLrHooCxyBE34yEttVVmnZLjrhKZzjEuwhm4Y5u
+# 8jCeOenzg1xvFFkhhzIyuFBB0nLbSvceCPdkxbp2iEM0ldp5eGl+Z9Rnkz+1hLZq
+# oBzxeKy95adgZbkgJJA6BY3pNGzRck3OxiPcPjeSta7rAq/3Aq1eNNIsxrxSrb3J
+# AvCE6cFY2+JNE5gG7tvk7k7Z4UnGVgWccMPfSv9sWJ4ise7zpxq4PkSVKqDuQWO5
+# 1k4C/tImY1a83bGr/jbpyyBcG/ciGTTGMedEw1IJF7mFWjcXoUnydomwZ/5kqQS0
+# V21E6ONO2maAmG3NAs9xNQF0TP5ICRR5UsCjjSvgeicTswsYfm4fSn57caJ/TmzR
+# +Ad7oIAY8zG+lSaMct7YSsqL6DQM9sclmvhfIbv5+gu1ZQl94oAK5s8f2AL7WVoE
+# 0Ewad0/6CEVQYR9g9HDLdOrn0C4HuB8+zvVVZyGqOiOpEFVWVGcDvjAtKpbfRw08
+# OP9V97IEFAEfcqxRh1469UGCDgfrS/iVczo748Dy2EbChJsiOgk2yfYFvUs4RrHF
+# oCdydftb4IHQAEodag==
 # SIG # End signature block
