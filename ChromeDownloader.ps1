@@ -135,7 +135,7 @@ Param(
 	
 	[Parameter(ValueFromPipelineByPropertyName=$true, position=1)]
 	[Alias("OS")]
-	[string] $osversion = "11.0", 
+	[string] $osversion = "", 
 	
 	[ValidateSet("x64", "64", "x86", "32", IgnoreCase = $false)]
 	[Parameter(ValueFromPipelineByPropertyName=$true, position=2)]
@@ -182,6 +182,21 @@ Param(
 	[string] $prefix = ""
 )
 
+# Separate windows and macos default version if not defined
+# Default windows version is 11
+switch ($platform) {
+    'win' {
+        if ([string]::IsNullOrWhiteSpace($osversion)) {
+            $osversion = '11'
+        }
+    }
+# Default macos version is 13
+    { @('mac', 'macos') -contains $_ } {
+        if ([string]::IsNullOrWhiteSpace($osversion)) {
+            $osversion = '13'
+        }
+    }
+}
 
 # settings
 Set-Variable ProgressPreference SilentlyContinue
